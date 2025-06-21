@@ -1,13 +1,20 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:gotan/global/common.dart';
+import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 class ParcelDetailScreen extends StatefulWidget {
   final String phoneNumber;
   final String orderId;
 
-  ParcelDetailScreen({required this.phoneNumber, required this.orderId});
+  const ParcelDetailScreen({required this.phoneNumber, required this.orderId});
 
   @override
   _ParcelDetailScreenState createState() => _ParcelDetailScreenState();
@@ -16,18 +23,35 @@ class ParcelDetailScreen extends StatefulWidget {
 class _ParcelDetailScreenState extends State<ParcelDetailScreen> {
   Map<String, dynamic>? rideDetails;
   bool isLoading = true;
+  Timer? _timer;
+  String otp = '';
 
   @override
   void initState() {
     super.initState();
     fetchRideDetails();
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      fetchRideDetails();
+    });
+    fetchOtp();
+  }
+
+  void fetchOtp() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    otp = prefs.getString('gotan_userOtp') ?? "";
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   Future<void> fetchRideDetails() async {
     const url = Common.baseUrl + 'api/user/getCurrentParcelOrder';
     final payload = {
       "phoneNumber": widget.phoneNumber,
-      "orderId": widget.orderId
+      "orderId": widget.orderId,
     };
 
     try {
@@ -38,15 +62,17 @@ class _ParcelDetailScreenState extends State<ParcelDetailScreen> {
       );
 
       if (response.statusCode == 200) {
+        if (!mounted) return; // ✅ Prevent setState if widget is disposed
         setState(() {
           rideDetails = jsonDecode(response.body);
           isLoading = false;
         });
       } else {
-        throw Exception('Failed to load ride details');
+        if (!mounted) return;
+        setState(() => isLoading = false);
       }
     } catch (e) {
-      //back print("Error: $e");
+      if (!mounted) return;
       setState(() => isLoading = false);
     }
   }
@@ -65,16 +91,19 @@ class _ParcelDetailScreenState extends State<ParcelDetailScreen> {
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
-            color: Colors.grey.shade700,
-            child: const Text(
-              "Awaiting Status Update",
-              style: TextStyle(color: Colors.white),
+            color: rideDetails?['riderStatus'] == 'In Transit'? Colors.blue : rideDetails?['riderStatus'] == 'Delivered'? Colors.green: Colors.grey.shade700,
+            child: Text(
+              (rideDetails?['riderAccepted'] == false)
+                  ? 'Awaiting status Update'
+                  : (rideDetails?['riderStatus'] ?? 'Unknown'),
+              style: const TextStyle(color: Colors.white),
               textAlign: TextAlign.center,
             ),
           ),
         ),
       ),
-      body: isLoading
+      body:
+      isLoading
           ? const Center(child: CircularProgressIndicator())
           : rideDetails == null
           ? const Center(child: Text("No details found"))
@@ -90,52 +119,193 @@ class _ParcelDetailScreenState extends State<ParcelDetailScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          blurRadius: 4,
-                          color: Colors.black12,
-                        )
+                      boxShadow: const [
+                        BoxShadow(blurRadius: 4, color: Colors.black12),
                       ],
                     ),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const CircleAvatar(
-                          radius: 32,
-                          backgroundColor: Colors.grey,
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          "• Updating status...",
-                          style: TextStyle(color: Colors.grey),
+                        Row(
+                          children: [
+                            rideDetails!['riderAccepted']
+                                ? CircleAvatar(
+                              radius: 32,
+                              backgroundColor: Colors.grey
+                                  .withOpacity(0.1),
+                              child: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Image.asset(
+                                  'assets/images/rider.png',
+                                ),
+                              ),
+                            )
+                                : CircleAvatar(
+                              radius: 32,
+                              backgroundColor: Colors.grey,
+                            ),
+                            const SizedBox(width: 16),
+                            Column(
+                              crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  rideDetails!['riderAccepted']? (rideDetails?['riderDetails']?[0]?['name'] ??
+                                      'Unknown'): 'Unknown',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const CircleAvatar(
+                                      radius: 5,
+                                      backgroundColor: Colors.grey,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      (rideDetails?['riderAccepted'] ==
+                                          false)
+                                          ? 'Updating status...'
+                                          : (rideDetails?['riderStatus'] ??
+                                          'Unknown'),
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            Spacer(),
+                            GestureDetector(
+                              onTap: () async {
+                                final riderPhone =
+                                rideDetails!['riderAccepted']? (rideDetails?['riderDetails']?[0]?['phoneNumber']): '';
+
+                                if (riderPhone != null &&
+                                    riderPhone.toString().isNotEmpty) {
+                                  final Uri callUri = Uri(
+                                    scheme: 'tel',
+                                    path: riderPhone,
+                                  );
+
+                                  if (await canLaunchUrl(callUri)) {
+                                    await launchUrl(callUri);
+                                  } else {
+                                    ScaffoldMessenger.of(
+                                      context,
+                                    ).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Unable to open dialer on this device',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                } else {
+                                  ScaffoldMessenger.of(
+                                    context,
+                                  ).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Phone number not available',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              },
+
+                              child: const CircleAvatar(
+                                radius: 20,
+                                backgroundColor: Colors.green,
+                                child: Icon(
+                                  Icons.phone,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 10),
+                          ],
                         ),
                         const Divider(height: 32),
-                        _infoRow(Icons.phone, "Phone", rideDetails!['sellerPhone']),
-                        _infoRow(Icons.local_taxi, "Vehicle", rideDetails!['vehicleType']),
-                        _infoRow(Icons.language, "Domain", rideDetails!['cityName']),
-                        _infoRow(Icons.monetization_on, "Price", rideDetails!['expectedPrice']),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _infoRow(
+                                Icons.phone,
+                                "Phone",
+                                rideDetails!['riderAccepted']? (rideDetails?['riderDetails']?[0]?['phoneNumber']): '',
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _infoRow(
+                                Icons.local_taxi,
+                                "Vehicle",
+                                rideDetails?['vehicleType'],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _infoRow(
+                                Icons.language,
+                                "Domain",
+                                rideDetails!['riderAccepted']? (rideDetails?['riderDetails']?[0]?['riderDomain']): '',
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _infoRow(
+                                Icons.monetization_on,
+                                "Price",
+                                rideDetails?['expectedPrice']
+                                    ?.toString(),
+                              ),
+                            ),
+                          ],
+                        ),
+
                         const SizedBox(height: 16),
                         Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 15,
+                            horizontal: 12,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.grey.shade100,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.verified_user, color: Colors.blue),
+                              const Icon(
+                                Icons.verified_user,
+                                color: Colors.blue,
+                              ),
                               const SizedBox(width: 8),
                               const Text("Customer OTP"),
                               const Spacer(),
-                              ElevatedButton(
-                                onPressed: () {},
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.grey.shade200,
-                                  foregroundColor: Colors.black,
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 8,
                                 ),
-                                child: const Text("Show to rider"),
-                              )
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(
+                                    12,
+                                  ),
+                                ),
+                                child: Text(
+                                  otp.isNotEmpty ? otp : 'unknown',
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -148,30 +318,34 @@ class _ParcelDetailScreenState extends State<ParcelDetailScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          blurRadius: 4,
-                          color: Colors.black12,
-                        )
+                      boxShadow: const [
+                        BoxShadow(blurRadius: 4, color: Colors.black12),
                       ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text("Journey Details", style: TextStyle(fontWeight: FontWeight.bold)),
+                        const Text(
+                          "Journey Details",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                         const SizedBox(height: 16),
                         _locationRow(
                           title: "Pickup Location",
                           icon: Icons.location_pin,
                           color: Colors.green,
-                          address: rideDetails!['pickupAddress'],
+                          address:
+                          rideDetails?['pickupAddress'] ??
+                              'Unknown',
                         ),
                         const SizedBox(height: 16),
                         _locationRow(
                           title: "Drop Location",
                           icon: Icons.location_pin,
                           color: Colors.orange,
-                          address: rideDetails!['deliveryAddress'],
+                          address:
+                          rideDetails?['deliveryAddress'] ??
+                              'Unknown',
                         ),
                       ],
                     ),
@@ -180,13 +354,46 @@ class _ParcelDetailScreenState extends State<ParcelDetailScreen> {
               ),
             ),
           ),
+          if(rideDetails?['riderAccepted'] == true)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
             child: Row(
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () {},
+                    onPressed: () async {
+                      final riderPhone =
+                      rideDetails!['riderAccepted']? (rideDetails?['riderDetails']?[0]?['phoneNumber']) : '';
+
+                      if (riderPhone != null &&
+                          riderPhone.toString().isNotEmpty) {
+                        final Uri callUri = Uri(
+                          scheme: 'tel',
+                          path: riderPhone,
+                        );
+
+                        if (await canLaunchUrl(callUri)) {
+                          await launchUrl(callUri);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Unable to open dialer on this device',
+                              ),
+                            ),
+                          );
+                        }
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Phone number not available'),
+                          ),
+                        );
+                      }
+                    },
                     icon: const Icon(Icons.call),
                     label: const Text("Call Rider"),
                     style: ElevatedButton.styleFrom(
@@ -198,7 +405,107 @@ class _ParcelDetailScreenState extends State<ParcelDetailScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () {},
+                    onPressed: () async {
+                      final pdf = pw.Document();
+                      final data = rideDetails!;
+
+                      // Safely get rider details
+                      final rider = rideDetails!['riderAccepted']
+                          ? (rideDetails?['riderDetails']?.isNotEmpty ?? false
+                          ? rideDetails!['riderDetails'][0]
+                          : null)
+                          : null;
+
+                      try {
+                        final logoImage = await imageFromAssetBundle('assets/images/gologo.png');
+
+                        pdf.addPage(
+                          pw.Page(
+                            build: (context) => pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Center(child: pw.Image(logoImage, height: 50)),
+                                pw.SizedBox(height: 20),
+                                pw.Row(
+                                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    pw.Column(
+                                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                      children: [
+                                        pw.Text("Invoice To"),
+                                        pw.Text(data['sellerName']?.toString() ?? "Unknown"),
+                                        pw.Text(data['sellerPhone']?.toString() ?? "Unknown"),
+                                        pw.Text(data['_id']?.toString() ?? ""),
+                                      ],
+                                    ),
+                                    pw.Column(
+                                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                      children: [
+                                        pw.Text("Service Type"),
+                                        pw.Text("Parcel Booking"),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                pw.SizedBox(height: 20),
+                                pw.Container(
+                                  color: PdfColors.black,
+                                  padding: const pw.EdgeInsets.all(6),
+                                  child: pw.Text(
+                                    'Order Details',
+                                    style: pw.TextStyle(color: PdfColors.white),
+                                  ),
+                                ),
+                                pw.Table(
+                                  columnWidths: {
+                                    0: pw.FlexColumnWidth(2),
+                                    1: pw.FlexColumnWidth(5),
+                                  },
+                                  border: pw.TableBorder.all(),
+                                  children: [
+                                    _tableRow("PickUp Address", data['pickupAddress']?.toString()),
+                                    _tableRow("Delivery Address", data['deliveryAddress']?.toString()),
+                                    _tableRow(
+                                      "Date and Time",
+                                      DateFormat('dd-MM-yyyy hh:mm a').format(
+                                          DateTime.parse(data['pickupTime']).toLocal()
+                                      ),
+                                    ),
+                                    // _tableRow("Passengers", data['numOfPassengers']?.toString()),
+                                    _tableRow("Weight", data['weight']?.toString()),
+                                    _tableRow("Message", data['message']?.toString()),
+                                    _tableRow("Rider Name", rider?['name']?.toString()),
+                                    _tableRow("Rider Phone", rider?['phoneNumber']?.toString()),
+                                    _tableRow("Rider Domain", rider?['riderDomain']?.toString()),
+                                    _tableRow("Payment (COD)", data['expectedPrice']?.toString()),
+                                  ],
+                                ),
+                                pw.SizedBox(height: 30),
+                                pw.Text("Thank you for choosing Gotan"),
+                                pw.Align(
+                                  alignment: pw.Alignment.bottomRight,
+                                  child: pw.Column(
+                                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                                    children: [
+                                      pw.Text("Sign"),
+                                      pw.Text("JodhPur Admin"),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+
+                        await Printing.layoutPdf(
+                          onLayout: (format) async => pdf.save(),
+                        );
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error generating PDF: ${e.toString()}')),
+                        );
+                      }
+                    },
                     icon: const Icon(Icons.receipt),
                     label: const Text("View Invoice"),
                     style: ElevatedButton.styleFrom(
@@ -209,9 +516,27 @@ class _ParcelDetailScreenState extends State<ParcelDetailScreen> {
                 ),
               ],
             ),
-          )
+          ),
         ],
       ),
+    );
+  }
+
+  pw.TableRow _tableRow(String key, String? value) {
+    return pw.TableRow(
+      children: [
+        pw.Padding(
+          padding: const pw.EdgeInsets.all(6),
+          child: pw.Text(
+            key,
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+          ),
+        ),
+        pw.Padding(
+          padding: const pw.EdgeInsets.all(6),
+          child: pw.Text(value ?? 'Unknown'),
+        ),
+      ],
     );
   }
 
@@ -219,11 +544,30 @@ class _ParcelDetailScreenState extends State<ParcelDetailScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 18),
-          const SizedBox(width: 8),
-          Text("$label: "),
-          Expanded(child: Text(value ?? 'N/A')),
+          const SizedBox(width: 15),
+          Expanded(
+            // 👈 this makes sure the text doesn't overflow the row
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "$label:",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  (value != null && value.trim().isNotEmpty)
+                      ? value
+                      : 'Unknown',
+                  softWrap: true,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

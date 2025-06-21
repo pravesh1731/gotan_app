@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:gotan/global/common.dart';
 import 'package:gotan/pages/homepage.dart';
 import 'package:lottie/lottie.dart';
@@ -6,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-import '../splash/LottieSplashScreen.dart';
+import '../splash/LottieSplashScreenToHome.dart';
 
 class BookingSummaryScreen extends StatefulWidget {
   final String pickup;
@@ -33,6 +34,20 @@ class BookingSummaryScreen extends StatefulWidget {
 class _BookingSummaryScreenState extends State<BookingSummaryScreen> {
 
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Colors.blue, // or any color you want
+          statusBarIconBrightness: Brightness.light, // use Brightness.light for white icons
+        ),
+      );
+    });
+  }
   Future<void> _confirmBooking(BuildContext context) async {
     setState(() {
       _isLoading = true;
@@ -75,13 +90,25 @@ class _BookingSummaryScreenState extends State<BookingSummaryScreen> {
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);
         //back print(jsonData);
+        setState(() {
+          SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+            statusBarColor: Colors.white,
+            statusBarIconBrightness: Brightness.dark,
+          ));
+        });
+        // Navigator.pushReplacement(
+        //   context,
+        //   MaterialPageRoute(
+        //     builder: (context) => LottieSplashScreen(
+        //       nextPage: HomePage(),
+        //       assetPath: 'assets/animations/confirm.json',
+        //     ),
+        //   ),
+        // );
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => LottieSplashScreen(
-              nextPage: HomePage(),
-              assetPath: 'assets/animations/confirm.json',
-            ),
+            builder: (context) => LottieSplashScreenToHome(orderId: orderId, phoneNumber: phoneNumber, isRide: true),
           ),
         );
       } else {
@@ -102,8 +129,13 @@ class _BookingSummaryScreenState extends State<BookingSummaryScreen> {
 
 
 
+
   @override
   Widget build(BuildContext context) {
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.blue, // Match gradient start
+      statusBarIconBrightness: Brightness.light,
+    ));
     return Scaffold(
       resizeToAvoidBottomInset: true,
       appBar: PreferredSize(
@@ -112,11 +144,7 @@ class _BookingSummaryScreenState extends State<BookingSummaryScreen> {
           alignment: Alignment.bottomCenter,
           padding: const EdgeInsets.only(bottom: 16, right: 16, left: 16),
           decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.deepPurpleAccent, Colors.blue],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: Colors.blue
           ),
           child: SafeArea(
             child: Row(

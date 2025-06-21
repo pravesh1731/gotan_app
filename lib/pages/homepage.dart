@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:gotan/pages/PhoneInputPage.dart';
 import 'package:gotan/pages/shopMainScreen.dart';
 import 'package:http/http.dart' as http;
@@ -101,8 +102,6 @@ class _HomePageState extends State<HomePage> {
       // ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not open link')));
     }
   }
-
-
 
   Future<void> _openWhatsApp(BuildContext context) async {
     Uri whatsappUri = Uri.parse("whatsapp://send?phone=+919461852060");
@@ -205,23 +204,21 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Color(0xFFB3D9F6), // or any color you want
+          statusBarIconBrightness: Brightness.dark, // use Brightness.light for white icons
+        ),
+      );
+      _searchFocusNode.unfocus();
+    });
     loadProfileData();
     fetchShops();
     fetchViewCount();
     fetchWeather();
     // sendDeviceDetailsToAPI();
     _searchFocusNode = FocusNode();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _searchFocusNode.unfocus();
-    });
-    // _searchFocusNode.addListener(() {
-    //   if (_searchFocusNode.hasFocus) {
-    //     _searchFocusNode.unfocus();
-    //     // Keyboard is dismissed
-    //   }
-    // });
-    // _searchFocusNode.unfocus();
   }
 
   Future<void> loadProfileData() async {
@@ -417,8 +414,82 @@ class _HomePageState extends State<HomePage> {
       fetchShops();
       fetchViewCount();
       fetchWeather();
+      checkNotificationPermission(context);
       // update your data here
     });
+  }
+
+  Future<void> checkNotificationPermission(BuildContext context) async {
+
+    var status = await Permission.notification.status;
+
+    if (status.isGranted) {
+      return;
+    }
+
+    // 👇 Request permission (this will show the system permission popup if possible)
+    var result = await Permission.notification.request();
+
+    // 👉 Only handle the case where the permission was asked and user denied it
+    if (result.isDenied) {
+      // Delay the dialog until the frame is built
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        showStyledPermissionDialog(
+          context: context,
+          title: "Notification Permission Needed",
+          message: "We use notifications to alert you about important updates. Please enable permission.",
+          // showSettingsButton: result.isPermanentlyDenied, // only show settings if needed
+        );
+      });
+    }
+  }
+
+  void showStyledPermissionDialog({
+    required BuildContext context,
+    required String title,
+    required String message,
+    // bool showSettingsButton = true,
+  }) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        titlePadding: EdgeInsets.only(top: 20, left: 24, right: 24),
+        contentPadding: EdgeInsets.only(left: 24, right: 24, top: 14, bottom: 24),
+        actionsPadding: EdgeInsets.only(right: 16, bottom: 16),
+        title: Text(
+          title,
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18, color: Colors.blue),
+        ),
+        content: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.9,
+          child: Text(message, style: TextStyle(fontSize: 15)),
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: Colors.grey.shade400),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            child: Text("Cancel", style: TextStyle(color: Colors.black)),
+          ),
+          // if (showSettingsButton)
+          //   ElevatedButton(
+          //     onPressed: () {
+          //       Navigator.pop(context);
+          //       openAppSettings();
+          //     },
+          //     style: ElevatedButton.styleFrom(
+          //       backgroundColor: Color(0xFF2563EB),
+          //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          //     ),
+          //     child: Text("Open Settings", style: TextStyle(color: Colors.white)),
+          //   ),
+        ],
+      ),
+    );
   }
 
   DateTime? _lastBackPressed;
@@ -469,7 +540,9 @@ class _HomePageState extends State<HomePage> {
         loading = false;
         weather = 'Location permission denied';
       });
+
     }
+    await checkNotificationPermission(context);
   }
 
   void showPermissionSettingsDialog(BuildContext context) {
@@ -633,8 +706,8 @@ class _HomePageState extends State<HomePage> {
 
         body: RefreshIndicator(
           onRefresh: _handleRefresh,
-          color: Colors.white,              // Spinner color
-          backgroundColor: Color(0xFF265DFF),
+          color: Color(0xFF265DFF),              // Spinner color
+          backgroundColor: Colors.white,
           child: GestureDetector(
             onTap: () {
               _searchFocusNode.unfocus(); // This removes focus from the TextField
@@ -661,36 +734,25 @@ class _HomePageState extends State<HomePage> {
                         ],
                       ),
           
-                    SizedBox(height: 20),
+                    SizedBox(height: 10),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        GestureDetector(
-                          onTap: () async{
-                            // Navigator.push(
-                            //   context,
-                            //   MaterialPageRoute(builder: (context) => LocationPickerPage()),
-                            // );
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () async{
+                              // Navigator.push(
+                              //   context,
+                              //   MaterialPageRoute(builder: (context) => LocationPickerPage()),
+                              // );
 
-                            if (phone != "0000000000") {
-                              var status = await Permission.location.status;
+                              if (phone != "0000000000") {
+                                var status = await Permission.location.status;
 
-                              if (status.isGranted) {
-                                // ✅ Permission already granted, navigate
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (context) => LottieSplashScreen(
-                                    nextPage: LocationPickerPage(page:1),
-                                    assetPath: 'assets/animations/travel.json',
-                                  )),
-                                );
-                              } else if (status.isPermanentlyDenied) {
-                                // ❌ Permission permanently denied
-                                showPermissionSettingsDialog(context);
-                              } else {
-                                // ❓ Not yet granted or denied, ask now
-                                var newStatus = await Permission.location.request();
-                                if (newStatus.isGranted) {
+                                if (status.isGranted) {
+                                  // ✅ Permission already granted, navigate
+                                  await checkNotificationPermission(context);
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(builder: (context) => LottieSplashScreen(
@@ -698,61 +760,64 @@ class _HomePageState extends State<HomePage> {
                                       assetPath: 'assets/animations/travel.json',
                                     )),
                                   );
+                                } else if (status.isPermanentlyDenied) {
+                                  // ❌ Permission permanently denied
+                                  showPermissionSettingsDialog(context);
                                 } else {
-                                  showPermissionRequestDialog(context);
+                                  // ❓ Not yet granted or denied, ask nowDeloi
+                                  var newStatus = await Permission.location.request();
+                                  if (newStatus.isGranted) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => LottieSplashScreen(
+                                        nextPage: LocationPickerPage(page:1),
+                                        assetPath: 'assets/animations/travel.json',
+                                      )),
+                                    );
+                                  } else {
+                                    showPermissionRequestDialog(context);
+                                  }
                                 }
                               }
-                            }
-                            if(phone=='0000000000')
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => PhoneInputPage()
-                            ));
-                            // if(phone!='0000000000')
-                            // Navigator.push(
-                            //   context,
-                            //   MaterialPageRoute(builder: (context) => LottieSplashScreen(
-                            //     nextPage: LocationPickerPage(page:1),
-                            //     assetPath: 'assets/animations/travel.json',
-                            //   )),
-                            // );
-                            _searchFocusNode.unfocus();
-                          },
-                          child: Container(
-                            child: _buildActionCard('Book a Rider', 'assets/images/rider.png'),
+                              if(phone=='0000000000')
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => PhoneInputPage()
+                              ));
+                              // if(phone!='0000000000')
+                              // Navigator.push(
+                              //   context,
+                              //   MaterialPageRoute(builder: (context) => LottieSplashScreen(
+                              //     nextPage: LocationPickerPage(page:1),
+                              //     assetPath: 'assets/animations/travel.json',
+                              //   )),
+                              // );
+                              _searchFocusNode.unfocus();
+                            },
+                            child: Container(
+                              child: _buildActionCard('Book a Rider', 'assets/images/rider.png'),
+                            ),
                           ),
                         ),
-                        SizedBox(width: 20),
-                        GestureDetector(
-                          onTap: () async{
-                            // Navigator.push(
-                            //   context,
-                            //   MaterialPageRoute(builder: (context) => LocationPickerPage()),
-                            // );
-                            if(phone=='0000000000')
-                              Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (context) => PhoneInputPage()
-                                  ));
-                            if (phone != "0000000000") {
-                              var status = await Permission.location.status;
-
-                              if (status.isGranted) {
-                                // ✅ Permission already granted, navigate
+                        // SizedBox(width: 20),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () async{
+                              // Navigator.push(
+                              //   context,
+                              //   MaterialPageRoute(builder: (context) => LocationPickerPage()),
+                              // );
+                              if(phone=='0000000000')
                                 Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (context) => LottieSplashScreen(
-                                    nextPage: LocationPickerPage(page:2),
-                                    assetPath: 'assets/animations/travel.json',
-                                  )),
-                                );
-                              } else if (status.isPermanentlyDenied) {
-                                // ❌ Permission permanently denied
-                                showPermissionSettingsDialog(context);
-                              } else {
-                                // ❓ Not yet granted or denied, ask now
-                                var newStatus = await Permission.location.request();
-                                if (newStatus.isGranted) {
+                                    context,
+                                    MaterialPageRoute(builder: (context) => PhoneInputPage()
+                                    ));
+                              if (phone != "0000000000") {
+                                var status = await Permission.location.status;
+
+                                if (status.isGranted) {
+                                  await checkNotificationPermission(context);
+                                  // ✅ Permission already granted, navigate
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(builder: (context) => LottieSplashScreen(
@@ -760,29 +825,65 @@ class _HomePageState extends State<HomePage> {
                                       assetPath: 'assets/animations/travel.json',
                                     )),
                                   );
+                                } else if (status.isPermanentlyDenied) {
+                                  // ❌ Permission permanently denied
+                                  showPermissionSettingsDialog(context);
                                 } else {
-                                  showPermissionRequestDialog(context);
+                                  // ❓ Not yet granted or denied, ask now
+                                  var newStatus = await Permission.location.request();
+                                  if (newStatus.isGranted) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => LottieSplashScreen(
+                                        nextPage: LocationPickerPage(page:2),
+                                        assetPath: 'assets/animations/travel.json',
+                                      )),
+                                    );
+                                  } else {
+                                    showPermissionRequestDialog(context);
+                                  }
                                 }
                               }
-                            }
-                            // if(phone!='0000000000')
-                            // Navigator.push(
-                            //   context,
-                            //   MaterialPageRoute(builder: (context) => LottieSplashScreen(
-                            //     nextPage: LocationPickerPage(page:2),
-                            //     assetPath: 'assets/animations/travel.json',
-                            //   )),
-                            // );
-                            _searchFocusNode.unfocus();
-                          },
-                          child: Container(
-                            child: _buildActionCard('Deliver a parcel.', 'assets/images/parcel3.png'),
+                              // if(phone!='0000000000')
+                              // Navigator.push(
+                              //   context,
+                              //   MaterialPageRoute(builder: (context) => LottieSplashScreen(
+                              //     nextPage: LocationPickerPage(page:2),
+                              //     assetPath: 'assets/animations/travel.json',
+                              //   )),
+                              // );
+                              _searchFocusNode.unfocus();
+                            },
+                            child: Container(
+                              child: _buildActionCard('Deliver a Parcel', 'assets/images/parcel3.png'),
+                            ),
+                          ),
+                        ),
+
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () async{
+
+                              final Uri url = Uri.parse("https://digistall.in/");
+
+                              if (await canLaunchUrl(url)) {
+                                await launchUrl(url, mode: LaunchMode.externalApplication);
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Could not launch website')),
+                                );
+                              }
+                              _searchFocusNode.unfocus();
+                            },
+                            child: Container(
+                              child: _buildActionCard('Create Store', 'assets/images/store2.png'),
+                            ),
                           ),
                         ),
                       ],
                     ),
           
-                    SizedBox(height: 20),
+                    SizedBox(height: 10),
                     Card(
                       elevation: 4,
                       shape: RoundedRectangleBorder(
@@ -839,7 +940,7 @@ class _HomePageState extends State<HomePage> {
           
                     SizedBox(height: 20),
                     Text('Categories', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                    SizedBox(height: 10),
+                    SizedBox(height: 15),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: categories.map((cat) {
@@ -942,18 +1043,33 @@ class _HomePageState extends State<HomePage> {
           
                     SizedBox(height: 20,),
                     buildFundraisingSection(context),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 10),
                     SingleChildScrollView(
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           // Eye icon and view count (optional for mobile top)
-                          const Icon(Icons.remove_red_eye, size: 32),
+
                           const SizedBox(height: 4),
-                          Text(
-                            '$viewCount',
-                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.remove_red_eye, size: 32),
+                                  Text(
+                                    '$viewCount',
+                                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                              Image.asset(
+                                'assets/images/gologo.png',
+                                height: 40,
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 20),
           
@@ -963,11 +1079,11 @@ class _HomePageState extends State<HomePage> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Image.asset(
-                                'assets/images/gologo.png',
-                                height: 40,
-                              ),
-                              const SizedBox(height: 12),
+                              // Image.asset(
+                              //   'assets/images/gologo.png',
+                              //   height: 40,
+                              // ),
+                              // const SizedBox(height: 12),
                               GestureDetector(
                                 onTap: () => _openWhatsApp(context),
                                 child: Row(
@@ -1037,12 +1153,21 @@ class _HomePageState extends State<HomePage> {
                           // Right Column (Newsletter & Policies)
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.center,
-                            children: const [
-                              Text("Newsletter"),
-                              SizedBox(height: 8),
-                              Text("Privacy Policy"),
-                              SizedBox(height: 8),
-                              Text("Terms and Condition"),
+                            children: [
+                              GestureDetector(
+                                onTap: () => _openUrl("https://digistall.substack.com/", context),
+                                child: const Text("Newsletter"),
+                              ),
+                              const SizedBox(height: 8),
+                              GestureDetector(
+                                onTap: () => _openUrl("https://digistall.in/privacy_and_policy", context),
+                                child: const Text("Privacy Policy"),
+                              ),
+                              const SizedBox(height: 8),
+                              GestureDetector(
+                                onTap: () => _openUrl("https://digistall.in/terms_and_conditions", context),
+                                child: const Text("Terms and Condition"),
+                              ),
                             ],
                           ),
                         ],
@@ -1057,6 +1182,17 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+  }
+
+  void _openUrl(String url, BuildContext context) async {
+    final Uri uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open the link')),
+      );
+    }
   }
 
   Widget buildFundraisingSection(context) {
@@ -1308,7 +1444,13 @@ Widget _buildActionCard(String title, String imagePath) {
               borderRadius: BorderRadius.circular(10),
               // border: Border.all(color: Colors.grey.shade400),
             ),
-            child: Image.asset(
+            child: imagePath=='assets/images/store2.png'? Padding(
+              padding: const EdgeInsets.all(10.0),
+              child: Image.asset(
+                imagePath,
+                fit: BoxFit.contain,
+              ),
+            ): Image.asset(
               imagePath,
               fit: BoxFit.contain,
             ),
@@ -1319,7 +1461,7 @@ Widget _buildActionCard(String title, String imagePath) {
           title,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w300,
             fontSize: 13,
             color: Colors.black,
           ),
@@ -1470,42 +1612,67 @@ class MainDrawer extends StatelessWidget {
                 color: Colors.green.shade50,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Row(
-                children: const [
-                  Icon(Icons.phone, color: Colors.green),
-                  SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("Order on Call", style: TextStyle(color: Colors.green)),
-                      Text("+91 9461852060", style: TextStyle(fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ],
+              child: InkWell(
+                onTap: () async {
+                  final phoneNumber = "9461852060"; // international format, no spaces
+                  final uri = Uri.parse("https://wa.me/${phoneNumber.replaceAll('+', '')}");
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Could not open WhatsApp')),
+                    );
+                  }
+                },
+                child: Row(
+                  children: const [
+                    Icon(Icons.phone, color: Colors.green),
+                    SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Order on Call", style: TextStyle(color: Colors.green)),
+                        Text("+91 9461852060", style: TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
 
             const SizedBox(height: 16),
 
             // Become DigiCaptain Section
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.purple.shade50,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: const [
-                  Icon(Icons.motorcycle, color: Colors.purple),
-                  SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("DigiCaptain", style: TextStyle(color: Colors.purple)),
-                      Text("Become DigiCaptain", style: TextStyle(fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ],
+            InkWell(
+              onTap: () async {
+                final Uri url = Uri.parse('https://rider.digistall.in/');
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url, mode: LaunchMode.externalApplication); // opens in browser
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Could not open the website')),
+                  );
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.purple.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.motorcycle, color: Colors.purple),
+                    SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("DigiCaptain", style: TextStyle(color: Colors.purple)),
+                        Text("Become DigiCaptain", style: TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

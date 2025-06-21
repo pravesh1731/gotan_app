@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:gotan/pages/homepage.dart';
 import 'package:lottie/lottie.dart';
@@ -10,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:gotan/global/common.dart';
 
 import '../splash/LottieSplashScreen.dart';
+import '../splash/LottieSplashScreenToHome.dart';
 
 class ParcelSummaryScreen extends StatefulWidget {
   final String pickup;
@@ -41,6 +43,18 @@ class ParcelSummaryScreen extends StatefulWidget {
 class _ParcelSummaryScreenState extends State<ParcelSummaryScreen> {
 
   bool _isLoading = false;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Colors.blue, // or any color you want
+          statusBarIconBrightness: Brightness.light, // use Brightness.light for white icons
+        ),
+      );
+    });
+  }
   Future<void> _confirmBooking(BuildContext context) async {
     setState(() {
       _isLoading = true;
@@ -83,13 +97,19 @@ class _ParcelSummaryScreenState extends State<ParcelSummaryScreen> {
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);
         //back print(jsonData);
-        Navigator.pushReplacement(
+        // Navigator.pushReplacement(
+        //   context,
+        //   MaterialPageRoute(
+        //     builder: (context) => LottieSplashScreen(
+        //       nextPage: HomePage(),
+        //       assetPath: 'assets/animations/confirm.json',
+        //     ),
+        //   ),
+        // );
+        Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => LottieSplashScreen(
-              nextPage: HomePage(),
-              assetPath: 'assets/animations/confirm.json',
-            ),
+            builder: (context) => LottieSplashScreenToHome(orderId: orderId, phoneNumber: phoneNumber, isRide: false,),
           ),
         );
       } else {
@@ -111,6 +131,10 @@ class _ParcelSummaryScreenState extends State<ParcelSummaryScreen> {
   // String _formatLatLng(LatLng latLng) {
   @override
   Widget build(BuildContext context) {
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.blue, // Match gradient start
+      statusBarIconBrightness: Brightness.light,
+    ));
     return Scaffold(
       resizeToAvoidBottomInset: true,
       appBar: PreferredSize(
@@ -119,11 +143,7 @@ class _ParcelSummaryScreenState extends State<ParcelSummaryScreen> {
           alignment: Alignment.bottomCenter,
           padding: const EdgeInsets.only(bottom: 16, right: 16, left: 16),
           decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.deepPurpleAccent, Colors.blue],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: Colors.blue
           ),
           child: SafeArea(
             child: Row(

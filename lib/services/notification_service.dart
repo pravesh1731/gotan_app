@@ -1,6 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../global/common.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -123,12 +128,49 @@ class NotificationService {
   }
 
   // Call this when switching user accounts (logout/login)
+  // Future<void> resetFcmToken() async {
+  //   await FirebaseMessaging.instance.deleteToken();
+  //   String? token = await FirebaseMessaging.instance.getToken();
+  //   if (token != null) {
+  //     print("🔑 FCM Token: $token");
+  //     saveFcmTokenLocally(token);
+  //     //call here
+  //   }
+  // }
+
   Future<void> resetFcmToken() async {
     await FirebaseMessaging.instance.deleteToken();
     String? token = await FirebaseMessaging.instance.getToken();
     if (token != null) {
       print("🔑 FCM Token: $token");
-      saveFcmTokenLocally(token);
+      await saveFcmTokenLocally(token);
+
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? phoneNumber = prefs.getString('gotan_phone_number');
+
+      if (phoneNumber == null || phoneNumber.isEmpty) {
+        print("⚠️ Phone number not found in SharedPreferences.");
+        return;
+      }
+
+      try {
+        final response = await http.post(
+          Uri.parse("${Common.baseUrl}api/auth/authenticate"),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            "cityName": "Gotan",
+            "phoneNumber": phoneNumber,
+            "deviceToken": token,
+          }),
+        );
+
+        print("📬 Token update API response: ${response.statusCode} - ${response.body}");
+      } catch (e) {
+        print("❌ Failed to update token on server: $e");
+        // Optionally show a toast or store this to retry later
+      }
     }
   }
+
+
 }

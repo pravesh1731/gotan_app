@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lottie/lottie.dart';
 import 'dart:async';
 
@@ -21,6 +22,15 @@ class _LottieSplashScreenState extends State<LottieSplashScreen> {
   void initState() {
     super.initState();
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Colors.white, // or any color you want
+          statusBarIconBrightness: Brightness.dark, // use Brightness.light for white icons
+        ),
+      );
+    });
+
     Timer(const Duration(seconds: 3), () {
       Navigator.pushReplacement(
         context,
@@ -31,7 +41,13 @@ class _LottieSplashScreenState extends State<LottieSplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.white, // Match gradient start
+      statusBarIconBrightness: Brightness.dark,
+    ));
+
     return Scaffold(
+      backgroundColor: Colors.white,
       body: Center(
         child: Lottie.asset(
           widget.assetPath,

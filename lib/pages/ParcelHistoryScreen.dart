@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ParcelDetailScreen.dart';
 import 'RideDetailScreen.dart';
+import 'dart:async'; // 👈 Important
 
 class ParcelHistoryScreen extends StatefulWidget {
   @override
@@ -21,11 +22,22 @@ class _ParcelHistoryScreenState extends State<ParcelHistoryScreen> {
   String searchQuery = "";
 
   final searchController = TextEditingController();
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
     fetchRideHistory();
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      fetchRideHistory();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel(); // 👈 Clean up timer to avoid memory leak
+    searchController.dispose();
+    super.dispose();
   }
 
   Future<void> fetchRideHistory() async {
@@ -43,9 +55,9 @@ class _ParcelHistoryScreenState extends State<ParcelHistoryScreen> {
         final data = jsonDecode(response.body).reversed.toList();
         setState(() {
           rides = data;
-          filteredRides = data;
           isLoading = false;
         });
+        filterRides();
       } else {
         throw Exception('Failed to load rides');
       }
@@ -59,9 +71,13 @@ class _ParcelHistoryScreenState extends State<ParcelHistoryScreen> {
     final query = searchQuery.toLowerCase();
     setState(() {
       filteredRides = rides.where((ride) {
-        final matchesStatus = selectedStatus == "All" ||
-            ride['user'] == selectedStatus || (selectedStatus == "Pending" && (ride['user'] == "accepted" || ride['user'] == "Pending") ) ||
-            (selectedStatus == "Delivered" && ride['user'] == "Completed");
+        final matchesStatus =
+            selectedStatus == "All" ||
+                (selectedStatus == "Delivered" && ride['riderStatus'] == "Delivered") ||
+                (selectedStatus == "In Progress" && ride['riderStatus'] == "In Transit") ||
+                (selectedStatus == "Pending" && ride['riderStatus'] == "En Route") ||
+                (selectedStatus == "Cancelled" && ride['riderStatus'] == "Cancelled");
+
 
         final matchesSearch = ride['pickupAddress'].toLowerCase().contains(query) ||
             ride['deliveryAddress'].toLowerCase().contains(query);
@@ -176,7 +192,7 @@ class _ParcelHistoryScreenState extends State<ParcelHistoryScreen> {
                 final delivery = ride['deliveryAddress'] ?? '';
                 final time = ride['pickupTime'] ?? '';
                 final price = ride['expectedPrice'] ?? 'Calculating';
-                final status = (ride['riderStatus'] == "Completed") ? "Delivered" : (ride['riderStatus'] ?? '');
+                final status = ride['riderStatus'] ?? '';
 
                 return Card(
                   color: Colors.white,

@@ -249,8 +249,27 @@ class _ShopScreenState extends State<ShopScreen> {
 
                         IconButton(
                           icon: const Icon(Icons.call, color: Colors.green),
-                          onPressed: () {
-                            // Add WhatsApp action here
+                          onPressed: () async {
+                            var rawPhone = shopResponse_header['phoneNumber'] ?? '';
+                            var phone = rawPhone.replaceAll(RegExp(r'\D'), ''); // Remove non-digit characters
+
+                            if (phone.isEmpty) {
+                              //back print("Phone number is empty");
+                              return;
+                            }
+
+                            final whatsappUrl = Uri.parse("https://wa.me/$phone");
+
+                            // Check if the URL can be launched
+                            if (await canLaunchUrl(whatsappUrl)) {
+                              // Try launching in an external browser or app (not in-app web view)
+                              await launchUrl(
+                                whatsappUrl,
+                                mode: LaunchMode.externalApplication,
+                              );
+                            } else {
+                              //back print("Could not launch WhatsApp URL");
+                            }
                           },
                         ),
                       ],
@@ -329,9 +348,17 @@ class _ShopScreenState extends State<ShopScreen> {
     return Padding(
       padding: const EdgeInsets.only(right: 16),
       child: GestureDetector(
-        onTap: () {
-          final fullUrl = url?.startsWith('http') == true ? url! : 'https://$url';
-          // Launch logic here using url_launcher if needed
+        onTap: () async {
+          final fullUrl = (url != null && url.startsWith('http')) ? url : 'https://$url';
+
+          final uri = Uri.parse(fullUrl);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Could not open link')),
+            );
+          }
         },
         child: CircleAvatar(
           backgroundColor: Colors.grey[200],

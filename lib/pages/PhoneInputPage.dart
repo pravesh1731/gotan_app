@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 import 'package:gotan/global/common.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -7,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/UserProvider.dart';
+import '../services/notification_service.dart';
 import 'OTPVerificationPage.dart';
 import 'HomePage.dart';
 
@@ -66,9 +68,9 @@ class _PhoneInputPageState extends State<PhoneInputPage> {
           body: jsonEncode({"phoneNumber": phone}),
         );
 
-        setState(() {
-          isLoading = false;
-        });
+        // setState(() {
+        //   isLoading = false;
+        // });
 
         if (secondResponse.statusCode == 200) {
           final data = jsonDecode(secondResponse.body);
@@ -85,6 +87,12 @@ class _PhoneInputPageState extends State<PhoneInputPage> {
             prefs.getString('gotan_name') ?? "Customer",
             prefs.getString('gotan_phone_number') ?? "0000000000",
           );
+
+          await NotificationService().resetFcmToken();
+
+          setState(() {
+            isLoading = false;
+          });
 
 
 
@@ -193,6 +201,10 @@ class _PhoneInputPageState extends State<PhoneInputPage> {
 
   @override
   Widget build(BuildContext context) {
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.white,
+      statusBarIconBrightness: Brightness.dark, // Use Brightness.light for white icons
+    ));
     return Scaffold(
       backgroundColor: const Color(0xfff9fafc),
       body: SafeArea(

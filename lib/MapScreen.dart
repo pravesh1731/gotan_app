@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:gotan/global/common.dart';
 import 'package:gotan/pages/BookingSummaryScreen.dart';
@@ -88,6 +89,14 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Colors.blue, // or any color you want
+          statusBarIconBrightness: Brightness.light, // use Brightness.light for white icons
+        ),
+      );
+    });
     _loadDirections();
   }
 
@@ -206,6 +215,10 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+    //   statusBarColor: Colors.blue, // Match gradient start
+    //   statusBarIconBrightness: Brightness.light,
+    // ));
     return Scaffold(
       resizeToAvoidBottomInset: true,
       appBar: PreferredSize(
@@ -214,11 +227,7 @@ class _MapScreenState extends State<MapScreen> {
           alignment: Alignment.bottomCenter,
           padding: const EdgeInsets.only(bottom: 16, right: 16, left: 16),
           decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.deepPurpleAccent, Colors.blue],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: Colors.blue
           ),
           child: SafeArea(
             child: Row(
