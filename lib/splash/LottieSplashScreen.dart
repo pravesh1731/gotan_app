@@ -41,19 +41,21 @@ class _LottieSplashScreenState extends State<LottieSplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-      statusBarColor: Colors.white, // Match gradient start
-      statusBarIconBrightness: Brightness.dark,
-    ));
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Lottie.asset(
-          widget.assetPath,
-          width: 300,
-          height: 300,
-          fit: BoxFit.contain,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.white, // or any background
+        statusBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: Lottie.asset(
+            widget.assetPath,
+            width: 300,
+            height: 300,
+            fit: BoxFit.contain,
+          ),
         ),
       ),
     );

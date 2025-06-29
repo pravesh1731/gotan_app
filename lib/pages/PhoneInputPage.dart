@@ -201,151 +201,153 @@ class _PhoneInputPageState extends State<PhoneInputPage> {
 
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-      statusBarColor: Colors.white,
-      statusBarIconBrightness: Brightness.dark, // Use Brightness.light for white icons
-    ));
-    return Scaffold(
-      backgroundColor: const Color(0xfff9fafc),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // Main centered content
-            Center(
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        "Get Started",
-                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: 30),
-                      Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            alignment: Alignment.center,
-                            child: Image.asset('assets/images/india.png', width: 24),
-                          ),
-                          Expanded(
-                            child: TextField(
-                              controller: phoneController,
-                              maxLength: 10,
-                              keyboardType: TextInputType.phone,
-                              decoration: InputDecoration(
-                                hintText: "10 digit phone number",
-                                counterText: "",
-                                filled: true,
-                                fillColor: Colors.white,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide.none,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Color(0xfff9fafc), // or any background
+        statusBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: const Color(0xfff9fafc),
+        body: SafeArea(
+          child: Stack(
+            children: [
+              // Main centered content
+              Center(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          "Get Started",
+                          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 30),
+                        Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              alignment: Alignment.center,
+                              child: Image.asset('assets/images/india.png', width: 24),
+                            ),
+                            Expanded(
+                              child: TextField(
+                                controller: phoneController,
+                                maxLength: 10,
+                                keyboardType: TextInputType.phone,
+                                decoration: InputDecoration(
+                                  hintText: "10 digit phone number",
+                                  counterText: "",
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide.none,
+                                  ),
                                 ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (showPasswordField) ...[
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: passwordController,
+                            obscureText: true,
+                            decoration: InputDecoration(
+                              hintText: "Enter password",
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide.none,
                               ),
                             ),
                           ),
                         ],
-                      ),
-                      if (showPasswordField) ...[
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: isLoading
+                                ? null
+                                : () {
+                              if (showPasswordField) {
+                                loginWithPassword();
+                              } else {
+                                sendOTP();
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: isLoading
+                                ? SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2.5,
+                              ),
+                            )
+                                : Text(
+                              showPasswordField ? "Login" : "Send OTP",
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
                         const SizedBox(height: 16),
-                        TextField(
-                          controller: passwordController,
-                          obscureText: true,
-                          decoration: InputDecoration(
-                            hintText: "Enter password",
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide.none,
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              showPasswordField = !showPasswordField;
+                            });
+                          },
+                          child: Text(
+                            showPasswordField ? "Login with OTP?" : "Login with Password",
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w400,
                             ),
                           ),
                         ),
                       ],
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: isLoading
-                              ? null
-                              : () {
-                            if (showPasswordField) {
-                              loginWithPassword();
-                            } else {
-                              sendOTP();
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: isLoading
-                              ? SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2.5,
-                            ),
-                          )
-                              : Text(
-                            showPasswordField ? "Login" : "Send OTP",
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            showPasswordField = !showPasswordField;
-                          });
-                        },
-                        child: Text(
-                          showPasswordField ? "Login with OTP?" : "Login with Password",
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            // Skip button positioned in bottom-right
-            Positioned(
-              bottom: 24,
-              right: 24,
-              child: ElevatedButton(
-                onPressed: skipLogin,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              // Skip button positioned in bottom-right
+              Positioned(
+                bottom: 24,
+                right: 24,
+                child: ElevatedButton(
+                  onPressed: skipLogin,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    "Skip",
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold),
                   ),
                 ),
-                child: Text(
-                  "Skip",
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold),
-                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -132,239 +132,245 @@ class _BookingSummaryScreenState extends State<BookingSummaryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-      statusBarColor: Colors.blue, // Match gradient start
-      statusBarIconBrightness: Brightness.light,
-    ));
-    return Scaffold(
-      resizeToAvoidBottomInset: true,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(47),
-        child: Container(
-          alignment: Alignment.bottomCenter,
-          padding: const EdgeInsets.only(bottom: 16, right: 16, left: 16),
-          decoration: const BoxDecoration(
-            color: Colors.blue
-          ),
-          child: SafeArea(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: const Icon(Icons.arrow_back, color: Colors.white),
-                ),
-                const Text(
-                  "Confirm Your Booking",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+    // SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+    //   statusBarColor: Colors.blue, // Match gradient start
+    //   statusBarIconBrightness: Brightness.light,
+    // ));
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.blue, // or any background
+        statusBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        resizeToAvoidBottomInset: true,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(47),
+          child: Container(
+            alignment: Alignment.bottomCenter,
+            padding: const EdgeInsets.only(bottom: 16, right: 16, left: 16),
+            decoration: const BoxDecoration(
+              color: Colors.blue
+            ),
+            child: SafeArea(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: const Icon(Icons.arrow_back, color: Colors.white),
                   ),
-                ),
-                const Opacity(
-                  opacity: 0.0,
-                  child: Icon(Icons.location_on, color: Colors.white, size: 20),
-                ),
-              ],
+                  const Text(
+                    "Confirm Your Booking",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Opacity(
+                    opacity: 0.0,
+                    child: Icon(Icons.location_on, color: Colors.white, size: 20),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
-              // Pickup & Drop Card
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Pickup
-                        Row(
-                          children: [
-                            const Icon(Icons.location_on, color: Colors.green),
-                            const SizedBox(width: 8),
-                            const Text("Pickup",
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 16)),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          widget.pickup,
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                        const SizedBox(height: 16),
-                        // Drop
-                        Row(
-                          children: [
-                            const Icon(Icons.location_on, color: Colors.orange),
-                            const SizedBox(width: 8),
-                            const Text("Drop",
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 16)),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          widget.destination,
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Booking Summary
-              Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.blue,
-                        borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(16),
-                            topRight: Radius.circular(16)),
-                      ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 20),
+                // Pickup & Drop Card
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
                       padding: const EdgeInsets.all(16.0),
-                      child: const Text(
-                        "Booking Summary\nPlease review your booking details",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 16, right: 16),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.blue[50],
-                      ),
-                      width: double.infinity,
-                      child: Center(
-                        child: Lottie.asset(
-                          "assets/animations/booking.json",
-                          height: 250,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-                        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
-                      ),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Journey Details
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text("Journey Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                const SizedBox(height: 8),
-                                _infoRow("Vehicle Type", widget.rideType),
-                                _infoRow("Distance", widget.distance),
-                                _infoRow("Pickup Time", _formatDateTime(widget.dateTime)),
-                                _infoRow("City", "Gotan"),
-                                const SizedBox(height: 16),
-
-                                // Fare Details
-                                const Text("Fare Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                const SizedBox(height: 8),
-                                _infoRow(
-                                    "Base fare",
-                                    '₹${_calculatePrice().toStringAsFixed(2)}'
-                                ),
-                                _infoRow("Service fee", "₹--"),
-                                const Divider(),
-                                _infoRow(
-                                    "Total",
-                                    '₹${_calculatePrice().toStringAsFixed(2)}',
-                                    isBold: true
-                                ),
-                                const SizedBox(height: 16),
-                              ],
-                            ),
+                          // Pickup
+                          Row(
+                            children: [
+                              const Icon(Icons.location_on, color: Colors.green),
+                              const SizedBox(width: 8),
+                              const Text("Pickup",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold, fontSize: 16)),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.pickup,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          const SizedBox(height: 16),
+                          // Drop
+                          Row(
+                            children: [
+                              const Icon(Icons.location_on, color: Colors.orange),
+                              const SizedBox(width: 8),
+                              const Text("Drop",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold, fontSize: 16)),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.destination,
+                            style: const TextStyle(fontSize: 14),
                           ),
                         ],
                       ),
                     ),
                   ),
+                ),
 
-                  const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-                  // Action Buttons
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text("Cancel"),
+                // Booking Summary
+                Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(16),
+                              topRight: Radius.circular(16)),
+                        ),
+                        padding: const EdgeInsets.all(16.0),
+                        child: const Text(
+                          "Booking Summary\nPlease review your booking details",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16, right: 16),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.blue[50],
+                        ),
+                        width: double.infinity,
+                        child: Center(
+                          child: Lottie.asset(
+                            "assets/animations/booking.json",
+                            height: 250,
+                            fit: BoxFit.contain,
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : () => _confirmBooking(context),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+                          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                        ),
+                        child: Column(
+                          children: [
+                            // Journey Details
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text("Journey Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                  const SizedBox(height: 8),
+                                  _infoRow("Vehicle Type", widget.rideType),
+                                  _infoRow("Distance", widget.distance),
+                                  _infoRow("Pickup Time", _formatDateTime(widget.dateTime)),
+                                  _infoRow("City", "Gotan"),
+                                  const SizedBox(height: 16),
+
+                                  // Fare Details
+                                  const Text("Fare Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                  const SizedBox(height: 8),
+                                  _infoRow(
+                                      "Base fare",
+                                      '₹${_calculatePrice().toStringAsFixed(2)}'
+                                  ),
+                                  _infoRow("Service fee", "₹--"),
+                                  const Divider(),
+                                  _infoRow(
+                                      "Total",
+                                      '₹${_calculatePrice().toStringAsFixed(2)}',
+                                      isBold: true
+                                  ),
+                                  const SizedBox(height: 16),
+                                ],
                               ),
                             ),
-                            child: _isLoading
-                                ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: const CircularProgressIndicator(color: Colors.white, ),
-                              )
-                            )
-                                : const Text(
-                              "Confirm Booking",
-                              style: TextStyle(color: Colors.white),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Action Buttons
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text("Cancel"),
                             ),
                           ),
-                        ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : () => _confirmBooking(context),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: const CircularProgressIndicator(color: Colors.white, ),
+                                )
+                              )
+                                  : const Text(
+                                "Confirm Booking",
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ),
 
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
 
-                  const SizedBox(height: 20),
-                ],
-              ),
-            ],
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

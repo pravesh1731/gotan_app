@@ -219,249 +219,255 @@ class _MapScreenState extends State<MapScreen> {
     //   statusBarColor: Colors.blue, // Match gradient start
     //   statusBarIconBrightness: Brightness.light,
     // ));
-    return Scaffold(
-      resizeToAvoidBottomInset: true,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(47),
-        child: Container(
-          alignment: Alignment.bottomCenter,
-          padding: const EdgeInsets.only(bottom: 16, right: 16, left: 16),
-          decoration: const BoxDecoration(
-            color: Colors.blue
-          ),
-          child: SafeArea(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: const Icon(Icons.arrow_back, color: Colors.white),
-                ),
-                const Text(
-                  "Book a Rider",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.blue, // or any background
+        statusBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        resizeToAvoidBottomInset: true,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(47),
+          child: Container(
+            alignment: Alignment.bottomCenter,
+            padding: const EdgeInsets.only(bottom: 16, right: 16, left: 16),
+            decoration: const BoxDecoration(
+              color: Colors.blue
+            ),
+            child: SafeArea(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: const Icon(Icons.arrow_back, color: Colors.white),
                   ),
-                ),
-                const Opacity(
-                  opacity: 0.0,
-                  child: Icon(Icons.location_on, color: Colors.white, size: 20),
-                ),
-              ],
+                  const Text(
+                    "Book a Rider",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Opacity(
+                    opacity: 0.0,
+                    child: Icon(Icons.location_on, color: Colors.white, size: 20),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Column(
-              children: [
-                Container(
-                  height: MediaQuery.of(context).size.height * 0.5,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      GoogleMap(
-                        myLocationButtonEnabled: false,
-                        zoomControlsEnabled: false,
-                        initialCameraPosition: _initialCameraPosition,
-                        onMapCreated: (controller) => _googleMapController = controller,
-                        markers: {
-                          if (_origin != null) _origin!,
-                          if (_destination != null) _destination!
-                        },
-                        polylines: {
-                          if (_info != null)
-                            Polyline(
-                              polylineId: const PolylineId('overview_polyline'),
-                              color: Colors.red,
-                              width: 5,
-                              points: _info!.polylinePoints
-                                  .map((e) => LatLng(e.latitude, e.longitude))
-                                  .toList(),
-                            ),
-                        },
-                      ),
-                      Positioned(
-                        bottom: 16,
-                        right: 16,
-                        child: FloatingActionButton(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
-                          onPressed: () => _googleMapController?.animateCamera(
-                            _info != null
-                                ? CameraUpdate.newLatLngBounds(_info!.bounds, 100.0)
-                                : CameraUpdate.newCameraPosition(_initialCameraPosition),
-                          ),
-                          child: const Icon(Icons.center_focus_strong),
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Column(
+                children: [
+                  Container(
+                    height: MediaQuery.of(context).size.height * 0.5,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        GoogleMap(
+                          myLocationButtonEnabled: false,
+                          zoomControlsEnabled: false,
+                          initialCameraPosition: _initialCameraPosition,
+                          onMapCreated: (controller) => _googleMapController = controller,
+                          markers: {
+                            if (_origin != null) _origin!,
+                            if (_destination != null) _destination!
+                          },
+                          polylines: {
+                            if (_info != null)
+                              Polyline(
+                                polylineId: const PolylineId('overview_polyline'),
+                                color: Colors.red,
+                                width: 5,
+                                points: _info!.polylinePoints
+                                    .map((e) => LatLng(e.latitude, e.longitude))
+                                    .toList(),
+                              ),
+                          },
                         ),
-                      ),
-                      if (_info != null)
                         Positioned(
-                          top: 20.0,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 6.0,
-                              horizontal: 12.0,
+                          bottom: 16,
+                          right: 16,
+                          child: FloatingActionButton(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.black,
+                            onPressed: () => _googleMapController?.animateCamera(
+                              _info != null
+                                  ? CameraUpdate.newLatLngBounds(_info!.bounds, 100.0)
+                                  : CameraUpdate.newCameraPosition(_initialCameraPosition),
                             ),
-                            decoration: BoxDecoration(
-                              color: Colors.yellowAccent,
-                              borderRadius: BorderRadius.circular(20.0),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Colors.black26,
-                                  offset: Offset(0, 2),
-                                  blurRadius: 6.0,
-                                )
-                              ],
-                            ),
-                            child: Text(
-                              '${_info!.totalDistance}, ${_info!.totalDuration}',
-                              style: const TextStyle(
-                                fontSize: 18.0,
-                                fontWeight: FontWeight.w600,
+                            child: const Icon(Icons.center_focus_strong),
+                          ),
+                        ),
+                        if (_info != null)
+                          Positioned(
+                            top: 20.0,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 6.0,
+                                horizontal: 12.0,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.yellowAccent,
+                                borderRadius: BorderRadius.circular(20.0),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Colors.black26,
+                                    offset: Offset(0, 2),
+                                    blurRadius: 6.0,
+                                  )
+                                ],
+                              ),
+                              child: Text(
+                                '${_info!.totalDistance}, ${_info!.totalDuration}',
+                                style: const TextStyle(
+                                  fontSize: 18.0,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-                ),
-
-                // Bottom Container
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                      boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10)],
+                      ],
                     ),
-                    child: Scrollbar(
-                      thumbVisibility: true,
-                      thickness: 4,
-                      radius: Radius.circular(10),
-                      child: SingleChildScrollView(
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 10),
-                            InkWell(
-                              onTap: _pickDateTime,
-                              child: InputDecorator(
-                                decoration: InputDecoration(
-                                  labelText: 'When do you want to ride?',
-                                  suffixIcon: const Icon(Icons.calendar_today),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
+                  ),
+
+                  // Bottom Container
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10)],
+                      ),
+                      child: Scrollbar(
+                        thumbVisibility: true,
+                        thickness: 4,
+                        radius: Radius.circular(10),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 10),
+                              InkWell(
+                                onTap: _pickDateTime,
+                                child: InputDecorator(
+                                  decoration: InputDecoration(
+                                    labelText: 'When do you want to ride?',
+                                    suffixIcon: const Icon(Icons.calendar_today),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
                                   ),
-                                ),
-                                child: Text(
-                                  selectedDateTime != null
-                                      ? '${selectedDateTime!.toLocal()}'.split('.')[0]
-                                      : 'Select Date & Time',
+                                  child: Text(
+                                    selectedDateTime != null
+                                        ? '${selectedDateTime!.toLocal()}'.split('.')[0]
+                                        : 'Select Date & Time',
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 10),
+                              const SizedBox(height: 10),
 
-                            // Ride Options
-                            Row(
-                              children: [
-                                _rideOption(
-                                    icon: Icons.motorcycle,
-                                    label: 'Bike',
-                                    subtitle: 'Up to 1 passenger',
-                                    selected: selectedRide == 'Bike'),
-                                _rideOption(
-                                    icon: Icons.electric_rickshaw,
-                                    label: 'Auto',
-                                    subtitle: 'Up to 3 passengers',
-                                    selected: selectedRide == 'Auto'),
-                                _rideOption(
-                                    icon: Icons.directions_car,
-                                    label: 'Car',
-                                    subtitle: 'Up to 4 passengers',
-                                    selected: selectedRide == 'Car'),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
+                              // Ride Options
+                              Row(
+                                children: [
+                                  _rideOption(
+                                      icon: Icons.motorcycle,
+                                      label: 'Bike',
+                                      subtitle: 'Up to 1 passenger',
+                                      selected: selectedRide == 'Bike'),
+                                  _rideOption(
+                                      icon: Icons.electric_rickshaw,
+                                      label: 'Auto',
+                                      subtitle: 'Up to 3 passengers',
+                                      selected: selectedRide == 'Auto'),
+                                  _rideOption(
+                                      icon: Icons.directions_car,
+                                      label: 'Car',
+                                      subtitle: 'Up to 4 passengers',
+                                      selected: selectedRide == 'Car'),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
 
-                            // Passenger Count
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('Passengers',
-                                    style: TextStyle(fontWeight: FontWeight.bold)),
-                                Row(
-                                  children: [
-                                    IconButton(
-                                      onPressed: passengerCount > 1
-                                          ? () => setState(() => passengerCount--)
-                                          : null,
-                                      icon: const Icon(Icons.remove_circle_outline),
-                                    ),
-                                    Text(passengerCount.toString()),
-                                    IconButton(
-                                      onPressed: passengerCount < rideLimits[selectedRide]!
-                                          ? () => setState(() => passengerCount++)
-                                          : null,
-                                      icon: const Icon(Icons.add_circle_outline),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            Container(
-                              alignment: AlignmentDirectional.centerStart,
-                              child: Text('Maximum ${rideLimits[selectedRide]} passengers for $selectedRide'),
-                            ),
-
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: const Text("Go Back"),
+                              // Passenger Count
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('Passengers',
+                                      style: TextStyle(fontWeight: FontWeight.bold)),
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        onPressed: passengerCount > 1
+                                            ? () => setState(() => passengerCount--)
+                                            : null,
+                                        icon: const Icon(Icons.remove_circle_outline),
+                                      ),
+                                      Text(passengerCount.toString()),
+                                      IconButton(
+                                        onPressed: passengerCount < rideLimits[selectedRide]!
+                                            ? () => setState(() => passengerCount++)
+                                            : null,
+                                        icon: const Icon(Icons.add_circle_outline),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: ElevatedButton(
-                                    onPressed: isLoading ? null : _bookRide,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blue,
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12)),
+                                ],
+                              ),
+                              Container(
+                                alignment: AlignmentDirectional.centerStart,
+                                child: Text('Maximum ${rideLimits[selectedRide]} passengers for $selectedRide'),
+                              ),
+
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text("Go Back"),
                                     ),
-                                    child: isLoading
-                                        ? SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: const CircularProgressIndicator(color: Colors.white, ),
-                                    )
-                                        : const Text("Book Now",
-                                        style: TextStyle(color: Colors.white)),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ],
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: ElevatedButton(
+                                      onPressed: isLoading ? null : _bookRide,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.blue,
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      child: isLoading
+                                          ? SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: const CircularProgressIndicator(color: Colors.white, ),
+                                      )
+                                          : const Text("Book Now",
+                                          style: TextStyle(color: Colors.white)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            if (isLoading)
-              const Center(
-                child: CircularProgressIndicator(),
+                ],
               ),
-          ],
+              if (isLoading)
+                const Center(
+                  child: CircularProgressIndicator(),
+                ),
+            ],
+          ),
         ),
       ),
     );

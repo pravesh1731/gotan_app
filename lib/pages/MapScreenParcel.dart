@@ -218,228 +218,234 @@ class _MapScreenParcelState extends State<MapScreenParcel> {
     //   statusBarColor: Colors.blue, // Match gradient start
     //   statusBarIconBrightness: Brightness.light,
     // ));
-    return Scaffold(
-      resizeToAvoidBottomInset: true,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(47),
-        child: Container(
-          alignment: Alignment.bottomCenter,
-          padding: const EdgeInsets.only(bottom: 16, right: 16, left: 16),
-          decoration: const BoxDecoration(
-            color: Colors.blue
-          ),
-          child: SafeArea(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: const Icon(Icons.arrow_back, color: Colors.white),
-                ),
-                const Text(
-                  "Parcel Delivery",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Opacity(
-                  opacity: 0.0,
-                  child: Icon(Icons.location_on, color: Colors.white, size: 20),
-                ),
-              ],
-            ),
-          ),
-        ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.blue, // or any background
+        statusBarIconBrightness: Brightness.light,
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // MAP SECTION - fills remaining space
-            Expanded(
-              child: Stack(
-                alignment: Alignment.center,
+      child: Scaffold(
+        resizeToAvoidBottomInset: true,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(47),
+          child: Container(
+            alignment: Alignment.bottomCenter,
+            padding: const EdgeInsets.only(bottom: 16, right: 16, left: 16),
+            decoration: const BoxDecoration(
+              color: Colors.blue
+            ),
+            child: SafeArea(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  GoogleMap(
-                    myLocationButtonEnabled: false,
-                    zoomControlsEnabled: false,
-                    initialCameraPosition: _initialCameraPosition,
-                    onMapCreated: (controller) => _googleMapController = controller,
-                    markers: {
-                      if (_origin != null) _origin!,
-                      if (_destination != null) _destination!,
-                    },
-                    polylines: {
-                      if (_info != null)
-                        Polyline(
-                          polylineId: const PolylineId('overview_polyline'),
-                          color: Colors.red,
-                          width: 5,
-                          points: _info!.polylinePoints
-                              .map((e) => LatLng(e.latitude, e.longitude))
-                              .toList(),
-                        ),
-                    },
-                    gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-                      Factory<OneSequenceGestureRecognizer>(
-                            () => EagerGestureRecognizer(),
-                      ),
-                    },
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: const Icon(Icons.arrow_back, color: Colors.white),
                   ),
-                  Positioned(
-                    bottom: 16,
-                    right: 16,
-                    child: FloatingActionButton(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
-                      onPressed: () => _googleMapController?.animateCamera(
-                        _info != null
-                            ? CameraUpdate.newLatLngBounds(_info!.bounds, 100.0)
-                            : CameraUpdate.newCameraPosition(_initialCameraPosition),
-                      ),
-                      child: const Icon(Icons.center_focus_strong),
+                  const Text(
+                    "Parcel Delivery",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  if (_info != null)
-                    Positioned(
-                      top: 20.0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 6.0,
-                          horizontal: 12.0,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.yellowAccent,
-                          borderRadius: BorderRadius.circular(20.0),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black26,
-                              offset: Offset(0, 2),
-                              blurRadius: 6.0,
-                            )
-                          ],
-                        ),
-                        child: Text(
-                          '${_info!.totalDistance}, ${_info!.totalDuration}',
-                          style: const TextStyle(
-                            fontSize: 18.0,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
+                  const Opacity(
+                    opacity: 0.0,
+                    child: Icon(Icons.location_on, color: Colors.white, size: 20),
+                  ),
                 ],
               ),
             ),
-
-            // FORM SECTION - fixed size, scrolls if keyboard appears
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
-              ),
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: 16,
-                  right: 16,
-                  top: 16,
-                  bottom: 16,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+          ),
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              // MAP SECTION - fills remaining space
+              Expanded(
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    Container(
-                      height: 4,
-                      width: 40,
-                      margin: EdgeInsets.only(bottom: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
+                    GoogleMap(
+                      myLocationButtonEnabled: false,
+                      zoomControlsEnabled: false,
+                      initialCameraPosition: _initialCameraPosition,
+                      onMapCreated: (controller) => _googleMapController = controller,
+                      markers: {
+                        if (_origin != null) _origin!,
+                        if (_destination != null) _destination!,
+                      },
+                      polylines: {
+                        if (_info != null)
+                          Polyline(
+                            polylineId: const PolylineId('overview_polyline'),
+                            color: Colors.red,
+                            width: 5,
+                            points: _info!.polylinePoints
+                                .map((e) => LatLng(e.latitude, e.longitude))
+                                .toList(),
+                          ),
+                      },
+                      gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                        Factory<OneSequenceGestureRecognizer>(
+                              () => EagerGestureRecognizer(),
+                        ),
+                      },
+                    ),
+                    Positioned(
+                      bottom: 16,
+                      right: 16,
+                      child: FloatingActionButton(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.black,
+                        onPressed: () => _googleMapController?.animateCamera(
+                          _info != null
+                              ? CameraUpdate.newLatLngBounds(_info!.bounds, 100.0)
+                              : CameraUpdate.newCameraPosition(_initialCameraPosition),
+                        ),
+                        child: const Icon(Icons.center_focus_strong),
                       ),
                     ),
-                    GestureDetector(
-                      onTap: _pickDateTime,
-                      child: InputDecorator(
+                    if (_info != null)
+                      Positioned(
+                        top: 20.0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 6.0,
+                            horizontal: 12.0,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.yellowAccent,
+                            borderRadius: BorderRadius.circular(20.0),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Colors.black26,
+                                offset: Offset(0, 2),
+                                blurRadius: 6.0,
+                              )
+                            ],
+                          ),
+                          child: Text(
+                            '${_info!.totalDistance}, ${_info!.totalDuration}',
+                            style: const TextStyle(
+                              fontSize: 18.0,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+              // FORM SECTION - fixed size, scrolls if keyboard appears
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
+                ),
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    top: 16,
+                    bottom: 16,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        height: 4,
+                        width: 40,
+                        margin: EdgeInsets.only(bottom: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: _pickDateTime,
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: 'Pickup Date & Time',
+                            suffixIcon: const Icon(Icons.calendar_today),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: Text(
+                            selectedDateTime != null
+                                ? '${selectedDateTime!.toLocal()}'.split('.')[0]
+                                : 'Select Date & Time',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: weightController,
+                        keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: 'Pickup Date & Time',
-                          suffixIcon: const Icon(Icons.calendar_today),
+                          labelText: 'Parcel Weight (kg)',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        child: Text(
-                          selectedDateTime != null
-                              ? '${selectedDateTime!.toLocal()}'.split('.')[0]
-                              : 'Select Date & Time',
-                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: weightController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: 'Parcel Weight (kg)',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: instructionsController,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        labelText: 'Delivery Instructions',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => Navigator.pop(context),
-                            icon: const Icon(Icons.arrow_back),
-                            label: const Text("Go Back"),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: instructionsController,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          labelText: 'Delivery Instructions',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: isLoading ? null : _bookRide,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: isLoading
-                                ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                                : const Text(
-                              "Book Now",
-                              style: TextStyle(color: Colors.white),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => Navigator.pop(context),
+                              icon: const Icon(Icons.arrow_back),
+                              label: const Text("Go Back"),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: isLoading ? null : _bookRide,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: isLoading
+                                  ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                                  : const Text(
+                                "Book Now",
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

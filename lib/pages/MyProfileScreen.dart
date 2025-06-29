@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:gotan/global/common.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -311,26 +312,32 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white.withOpacity(0.95),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: Text('My Profile',
-            style: TextStyle(
-                color: Colors.blue[800], fontWeight: FontWeight.bold)),
-        centerTitle: true,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, color: Colors.black87),
-          onPressed: () => Navigator.pop(context),
-        ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.white, // or any background
+        statusBarIconBrightness: Brightness.dark, // for iOS
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildHeaderCard(),
-            _buildSettingsSection(),
-          ],
+      child: Scaffold(
+        backgroundColor: Colors.white.withOpacity(0.95),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          title: Text('My Profile',
+              style: TextStyle(
+                  color: Colors.blue[800], fontWeight: FontWeight.bold)),
+          centerTitle: true,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_ios_new, color: Colors.black87),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
+        body: SingleChildScrollView(
+          child: Column(
+            children: [
+              _buildHeaderCard(),
+              _buildSettingsSection(),
+            ],
+          ),
         ),
       ),
     );

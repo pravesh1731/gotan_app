@@ -160,8 +160,8 @@ class _HomePageState extends State<HomePage> {
   List<Shop> shopList = [];
   bool isLoading = true;
 
-  int currentPage = 1;
-  int itemsPerPage = 6;
+  // int currentPage = 1;
+  // int itemsPerPage = 6;
 
   List<Shop> get filteredShops {
     return shopList.where((shop) {
@@ -178,14 +178,16 @@ class _HomePageState extends State<HomePage> {
     }).toList();
   }
 
-  List<Shop> get paginatedShops {
-    List<Shop> filtered = filteredShops;
-    int start = (currentPage - 1) * itemsPerPage;
-    int end = (start + itemsPerPage).clamp(0, filtered.length);
-    return filtered.sublist(start, end);
-  }
+  // List<Shop> get paginatedShops {
+  //   List<Shop> filtered = filteredShops;
+  //   int start = (currentPage - 1) * itemsPerPage;
+  //   int end = (start + itemsPerPage).clamp(0, filtered.length);
+  //   return filtered.sublist(start, end);
+  // }
 
-  int get totalPages => (filteredShops.length / itemsPerPage).ceil();
+  List<Shop> get paginatedShops => filteredShops;
+
+  // int get totalPages => (filteredShops.length / itemsPerPage).ceil();
 
   final PageController _pageController = PageController();
   int _currentPage = 0;
@@ -315,6 +317,12 @@ class _HomePageState extends State<HomePage> {
     super.didChangeDependencies();
     // Start the timer after the first frame when the PageView is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Color(0xFFB3D9F6), // or any color you want
+          statusBarIconBrightness: Brightness.dark, // use Brightness.light for white icons
+        ),
+      );
       _startAutoScroll();
     });
   }
@@ -674,99 +682,90 @@ class _HomePageState extends State<HomePage> {
 
         return false; // Exit the app
       },
-      child: Scaffold(
-
-        drawer: MainDrawer(
-          userName: userName,
-          phone: phone,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle(
+          statusBarColor: Color(0xFFB3D9F6), // or any background
+          statusBarIconBrightness: Brightness.dark,
         ),
+        child: Scaffold(
 
-        appBar: AppBar(
-          automaticallyImplyLeading: false, // disables default back/menu icon
-          backgroundColor: const Color(0xFFB3D9F6), // set background color directly
-          elevation: 1, // this now shows shadow correctly
-          shadowColor: Colors.grey.shade500, // optional: set shadow color
-          title: Padding(
-            padding: const EdgeInsets.only(left: 5),
-            child: Image.asset('assets/images/gologo.png', height: 40),
+          drawer: MainDrawer(
+            userName: userName,
+            phone: phone,
           ),
-          actions: [
-            Builder(
-              builder: (context) => IconButton(
-                icon: const Icon(Icons.menu, color: Colors.black),
-                onPressed: () {
-                  _searchFocusNode.unfocus(); // ✅ Unfocus first
-                  Scaffold.of(context).openDrawer(); // ❌ This throws error in this context
-                },
-              ),
+
+          appBar: AppBar(
+            automaticallyImplyLeading: false, // disables default back/menu icon
+            backgroundColor: const Color(0xFFB3D9F6), // set background color directly
+            elevation: 1, // this now shows shadow correctly
+            shadowColor: Colors.grey.shade500, // optional: set shadow color
+            title: Padding(
+              padding: const EdgeInsets.only(left: 5),
+              child: Image.asset('assets/images/gologo.png', height: 40),
             ),
-          ],
-        ),
+            actions: [
+              Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.menu, color: Colors.black),
+                  onPressed: () {
+                    _searchFocusNode.unfocus(); // ✅ Unfocus first
+                    Scaffold.of(context).openDrawer(); // ❌ This throws error in this context
+                  },
+                ),
+              ),
+            ],
+          ),
 
 
-        body: RefreshIndicator(
-          onRefresh: _handleRefresh,
-          color: Color(0xFF265DFF),              // Spinner color
-          backgroundColor: Colors.white,
-          child: GestureDetector(
-            onTap: () {
-              _searchFocusNode.unfocus(); // This removes focus from the TextField
-            },
-            child: Container(
-              decoration: BoxDecoration(gradient: kAppGradient),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Hey, ${userProvider.name}',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                    // Text('Hey, '+userName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                    SizedBox(height: 4),
-                    Text('What are you looking for?', style: TextStyle(fontSize: 16)),
-                    SizedBox(height: 4),
-                    if (temperature.isNotEmpty)
-                      Column(
+          body: RefreshIndicator(
+            onRefresh: _handleRefresh,
+            color: Color(0xFF265DFF),              // Spinner color
+            backgroundColor: Colors.white,
+            child: GestureDetector(
+              onTap: () {
+                _searchFocusNode.unfocus(); // This removes focus from the TextField
+              },
+              child: Container(
+                decoration: BoxDecoration(gradient: kAppGradient),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Hey, ${userProvider.name}',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                      // Text('Hey, '+userName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                      SizedBox(height: 4),
+                      Text('What are you looking for?', style: TextStyle(fontSize: 16)),
+                      SizedBox(height: 4),
+                      if (temperature.isNotEmpty)
+                        Column(
+                          children: [
+                            // Text('City: $city', style: TextStyle(fontSize: 20)),
+                            Text(temperature, style: TextStyle(fontSize: 15, color: Colors.blue, fontWeight: FontWeight.bold),),
+                            // Text('Weather: $weather', style: TextStyle(fontSize: 20)),
+                          ],
+                        ),
+
+                      SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Text('City: $city', style: TextStyle(fontSize: 20)),
-                          Text(temperature, style: TextStyle(fontSize: 15, color: Colors.blue, fontWeight: FontWeight.bold),),
-                          // Text('Weather: $weather', style: TextStyle(fontSize: 20)),
-                        ],
-                      ),
-          
-                    SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () async{
-                              // Navigator.push(
-                              //   context,
-                              //   MaterialPageRoute(builder: (context) => LocationPickerPage()),
-                              // );
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () async{
+                                // Navigator.push(
+                                //   context,
+                                //   MaterialPageRoute(builder: (context) => LocationPickerPage()),
+                                // );
 
-                              if (phone != "0000000000") {
-                                var status = await Permission.location.status;
+                                if (phone != "0000000000") {
+                                  var status = await Permission.location.status;
 
-                                if (status.isGranted) {
-                                  // ✅ Permission already granted, navigate
-                                  await checkNotificationPermission(context);
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (context) => LottieSplashScreen(
-                                      nextPage: LocationPickerPage(page:1),
-                                      assetPath: 'assets/animations/travel.json',
-                                    )),
-                                  );
-                                } else if (status.isPermanentlyDenied) {
-                                  // ❌ Permission permanently denied
-                                  showPermissionSettingsDialog(context);
-                                } else {
-                                  // ❓ Not yet granted or denied, ask nowDeloi
-                                  var newStatus = await Permission.location.request();
-                                  if (newStatus.isGranted) {
+                                  if (status.isGranted) {
+                                    // ✅ Permission already granted, navigate
+                                    await checkNotificationPermission(context);
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(builder: (context) => LottieSplashScreen(
@@ -774,64 +773,64 @@ class _HomePageState extends State<HomePage> {
                                         assetPath: 'assets/animations/travel.json',
                                       )),
                                     );
+                                  } else if (status.isPermanentlyDenied) {
+                                    // ❌ Permission permanently denied
+                                    showPermissionSettingsDialog(context);
                                   } else {
-                                    showPermissionRequestDialog(context);
+                                    // ❓ Not yet granted or denied, ask nowDeloi
+                                    var newStatus = await Permission.location.request();
+                                    if (newStatus.isGranted) {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(builder: (context) => LottieSplashScreen(
+                                          nextPage: LocationPickerPage(page:1),
+                                          assetPath: 'assets/animations/travel.json',
+                                        )),
+                                      );
+                                    } else {
+                                      showPermissionRequestDialog(context);
+                                    }
                                   }
                                 }
-                              }
-                              if(phone=='0000000000')
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => PhoneInputPage()
-                              ));
-                              // if(phone!='0000000000')
-                              // Navigator.push(
-                              //   context,
-                              //   MaterialPageRoute(builder: (context) => LottieSplashScreen(
-                              //     nextPage: LocationPickerPage(page:1),
-                              //     assetPath: 'assets/animations/travel.json',
-                              //   )),
-                              // );
-                              _searchFocusNode.unfocus();
-                            },
-                            child: Container(
-                              child: _buildActionCard('Book a Rider', 'assets/images/rider.png'),
+                                if(phone=='0000000000')
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => PhoneInputPage()
+                                ));
+                                // if(phone!='0000000000')
+                                // Navigator.push(
+                                //   context,
+                                //   MaterialPageRoute(builder: (context) => LottieSplashScreen(
+                                //     nextPage: LocationPickerPage(page:1),
+                                //     assetPath: 'assets/animations/travel.json',
+                                //   )),
+                                // );
+                                _searchFocusNode.unfocus();
+                              },
+                              child: Container(
+                                child: _buildActionCard('Book a Rider', 'assets/images/rider.png'),
+                              ),
                             ),
                           ),
-                        ),
-                        // SizedBox(width: 20),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () async{
-                              // Navigator.push(
-                              //   context,
-                              //   MaterialPageRoute(builder: (context) => LocationPickerPage()),
-                              // );
-                              if(phone=='0000000000')
-                                Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (context) => PhoneInputPage()
-                                    ));
-                              if (phone != "0000000000") {
-                                var status = await Permission.location.status;
-
-                                if (status.isGranted) {
-                                  await checkNotificationPermission(context);
-                                  // ✅ Permission already granted, navigate
+                          // SizedBox(width: 20),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () async{
+                                // Navigator.push(
+                                //   context,
+                                //   MaterialPageRoute(builder: (context) => LocationPickerPage()),
+                                // );
+                                if(phone=='0000000000')
                                   Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (context) => LottieSplashScreen(
-                                      nextPage: LocationPickerPage(page:2),
-                                      assetPath: 'assets/animations/travel.json',
-                                    )),
-                                  );
-                                } else if (status.isPermanentlyDenied) {
-                                  // ❌ Permission permanently denied
-                                  showPermissionSettingsDialog(context);
-                                } else {
-                                  // ❓ Not yet granted or denied, ask now
-                                  var newStatus = await Permission.location.request();
-                                  if (newStatus.isGranted) {
+                                      context,
+                                      MaterialPageRoute(builder: (context) => PhoneInputPage()
+                                      ));
+                                if (phone != "0000000000") {
+                                  var status = await Permission.location.status;
+
+                                  if (status.isGranted) {
+                                    await checkNotificationPermission(context);
+                                    // ✅ Permission already granted, navigate
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(builder: (context) => LottieSplashScreen(
@@ -839,342 +838,359 @@ class _HomePageState extends State<HomePage> {
                                         assetPath: 'assets/animations/travel.json',
                                       )),
                                     );
+                                  } else if (status.isPermanentlyDenied) {
+                                    // ❌ Permission permanently denied
+                                    showPermissionSettingsDialog(context);
                                   } else {
-                                    showPermissionRequestDialog(context);
+                                    // ❓ Not yet granted or denied, ask now
+                                    var newStatus = await Permission.location.request();
+                                    if (newStatus.isGranted) {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(builder: (context) => LottieSplashScreen(
+                                          nextPage: LocationPickerPage(page:2),
+                                          assetPath: 'assets/animations/travel.json',
+                                        )),
+                                      );
+                                    } else {
+                                      showPermissionRequestDialog(context);
+                                    }
                                   }
                                 }
-                              }
-                              // if(phone!='0000000000')
-                              // Navigator.push(
-                              //   context,
-                              //   MaterialPageRoute(builder: (context) => LottieSplashScreen(
-                              //     nextPage: LocationPickerPage(page:2),
-                              //     assetPath: 'assets/animations/travel.json',
-                              //   )),
-                              // );
-                              _searchFocusNode.unfocus();
-                            },
-                            child: Container(
-                              child: _buildActionCard('Deliver a Parcel', 'assets/images/parcel3.png'),
-                            ),
-                          ),
-                        ),
-
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () async{
-
-                              final Uri url = Uri.parse("https://digistall.in/");
-
-                              if (await canLaunchUrl(url)) {
-                                await launchUrl(url, mode: LaunchMode.externalApplication);
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Could not launch website')),
-                                );
-                              }
-                              _searchFocusNode.unfocus();
-                            },
-                            child: Container(
-                              child: _buildActionCard('Create Store', 'assets/images/store2.png'),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-          
-                    SizedBox(height: 10),
-                    Card(
-                      elevation: 4,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      margin: EdgeInsets.zero,
-                      child: Container(
-                        height: 45,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.search, color: Colors.grey),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: TextField(
-                                focusNode: _searchFocusNode,
-                                cursorColor: Colors.grey,      // 👈 Cursor color
-                                cursorHeight: 20,
-                                decoration: const InputDecoration(
-                                  hintText: 'Search for shops and categorys',
-                                  hintStyle: TextStyle(color: Colors.grey),
-                                  border: InputBorder.none,
-                                ),
-                                onChanged: (value) {
-                                  setState(() {
-                                    searchQuery = value;
-                                    currentPage = 1; // Reset to first page when searching
-                                  });
-                                },
+                                // if(phone!='0000000000')
+                                // Navigator.push(
+                                //   context,
+                                //   MaterialPageRoute(builder: (context) => LottieSplashScreen(
+                                //     nextPage: LocationPickerPage(page:2),
+                                //     assetPath: 'assets/animations/travel.json',
+                                //   )),
+                                // );
+                                _searchFocusNode.unfocus();
+                              },
+                              child: Container(
+                                child: _buildActionCard('Deliver a Parcel', 'assets/images/parcel3.png'),
                               ),
                             ),
-          
-                          ],
-                        ),
-                      ),
-                    ),
-                    // TextField(
-                    //   decoration: InputDecoration(
-                    //     hintText: 'Search...',
-                    //     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    //     prefixIcon: Icon(Icons.search),
-                    //   ),
-                    //   onChanged: (value) {
-                    //     setState(() {
-                    //       searchQuery = value;
-                    //       currentPage = 1; // Reset to first page when searching
-                    //     });
-                    //   },
-                    // ),
-          
-                    SizedBox(height: 20),
-                    Text('Categories', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                    SizedBox(height: 15),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: categories.map((cat) {
-                        return GestureDetector(
-                          // In your category onTap handler:
-                          onTap: () {
-                            setState(() {
-                              selectedCategory = cat['name']!;
-                              currentPage = 1; // Reset to first page when changing category
-                            });
-                          },
-                          child: Column(
-                            children: [
-                              CircleAvatar(
-                                backgroundImage: AssetImage(cat['image']!),
-                                radius: 30,
-                                backgroundColor: selectedCategory == cat['name']
-                                    ? Colors.blue.withOpacity(0.2)
-                                    : Colors.transparent,
-                              ),
-                              SizedBox(height: 5),
-                              Text(
-                                cat['name']!,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: selectedCategory == cat['name']
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                ),
-                              ),
-                            ],
                           ),
-                        );
-                      }).toList(),
-                    ),
-          
-                    SizedBox(height: 24,),
-          
-                    isLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : filteredShops.isEmpty
-                        ? const Center(
-                      child: Text(
-                        'No shops found matching your criteria',
-                        style: TextStyle(fontSize: 16),
-                      ),
-                    )
-                        : Column(
-                      children: [
-                        GridView.count(
-                          crossAxisCount: 2,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          childAspectRatio: 0.75,
-                          mainAxisSpacing: 16,
-                          crossAxisSpacing: 16,
-                          children: paginatedShops
-                              .map((shop) => _buildShopCard(
-                            shop.shopImage,
-                            shop.heading,
-                            shop.desc,
-                            shop.shopId,
-                            context,
-                          ))
-                              .toList(),
-                        ),
-                        const SizedBox(height: 16),
-                        if (totalPages > 1)
-                          Wrap(
-                            spacing: 8,
-                            children: List.generate(totalPages, (index) {
-                              int pageNumber = index + 1;
-                              return ElevatedButton(
-                                onPressed: () {
-                                  setState(() {
-                                    currentPage = pageNumber;
-                                  });
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: currentPage == pageNumber
-                                      ? Colors.blue
-                                      : Colors.grey.shade300,
-                                  foregroundColor: currentPage == pageNumber
-                                      ? Colors.white
-                                      : Colors.black,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 8,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: Text("$pageNumber"),
-                              );
-                            }),
-                          ),
-                      ],
-                    ),
-          
-                    SizedBox(height: 20,),
-                    buildFundraisingSection(context),
-                    const SizedBox(height: 10),
-                    SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          // Eye icon and view count (optional for mobile top)
 
-                          const SizedBox(height: 4),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.remove_red_eye, size: 32),
-                                  Text(
-                                    '$viewCount',
-                                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                                  ),
-                                ],
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () async{
+
+                                final Uri url = Uri.parse("https://digistall.in/");
+
+                                if (await canLaunchUrl(url)) {
+                                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Could not launch website')),
+                                  );
+                                }
+                                _searchFocusNode.unfocus();
+                              },
+                              child: Container(
+                                child: _buildActionCard('Create Store', 'assets/images/store2.png'),
                               ),
-                              Image.asset(
-                                'assets/images/gologo.png',
-                                height: 40,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-          
-                          // Social Icon
-          
-                          // Company Info Section (Left Column originally)
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              // Image.asset(
-                              //   'assets/images/gologo.png',
-                              //   height: 40,
-                              // ),
-                              // const SizedBox(height: 12),
-                              GestureDetector(
-                                onTap: () => _openWhatsApp(context),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: const [
-                                    Icon(Icons.phone, size: 16),
-                                    SizedBox(width: 8),
-                                    Text('+91 9461852060'),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              GestureDetector(
-                                onTap: () => _openEmail(context),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: const [
-                                    Icon(Icons.email, size: 16),
-                                    SizedBox(width: 8),
-                                    Text('humansofruralindia@gmail.com'),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              const Text('7 Siyag House, Gotan, Rajasthan 342902'),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-                          Wrap(
-                            spacing: 16,
-                            alignment: WrapAlignment.center,
-                            children: [
-                              GestureDetector(
-                                onTap: () => _launchUrl('https://www.instagram.com/digistallapp/'),
-                                child: Image.asset('assets/images/instagram.png', height: 32),
-                              ),
-                              GestureDetector(
-                                onTap: () => _launchUrl('https://www.linkedin.com/company/humans-of-rural-india/'),
-                                child: Image.asset('assets/images/linkedin.png', height: 32),
-                              ),
-                              GestureDetector(
-                                onTap: () => _launchUrl('https://www.facebook.com/humansofruralindia/'),
-                                child: Image.asset('assets/images/facebook.png', height: 32),
-                              ),
-                              GestureDetector(
-                                onTap: () => _launchUrl('https://x.com/DigistallApp'),
-                                child: Image.asset('assets/images/twitter.png', height: 32),
-                              ),
-                              GestureDetector(
-                                onTap: () => _launchUrl('https://www.youtube.com/@digistall'),
-                                child: Image.asset('assets/images/youtube.png', height: 32),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-          
-                          // Legal Info (Center Column)
-                          Column(
-                            children: const [
-                              Text("Siyag Rural Market Private Limited [© Digistall]"),
-                              Text("CIN No. :- U52100RJ2021PTC077111"),
-                              Text("GSTIN :- 08ABGCS8909L1ZN"),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-          
-                          // Right Column (Newsletter & Policies)
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              GestureDetector(
-                                onTap: () => _openUrl("https://digistall.substack.com/", context),
-                                child: const Text("Newsletter"),
-                              ),
-                              const SizedBox(height: 8),
-                              GestureDetector(
-                                onTap: () => _openUrl("https://digistall.in/privacy_and_policy", context),
-                                child: const Text("Privacy Policy"),
-                              ),
-                              const SizedBox(height: 8),
-                              GestureDetector(
-                                onTap: () => _openUrl("https://digistall.in/terms_and_conditions", context),
-                                child: const Text("Terms and Condition"),
-                              ),
-                            ],
+                            ),
                           ),
                         ],
                       ),
-                    ),
-          
-                  ],
+
+                      SizedBox(height: 10),
+                      Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        margin: EdgeInsets.zero,
+                        child: Container(
+                          height: 45,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.search, color: Colors.grey),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: TextField(
+                                  focusNode: _searchFocusNode,
+                                  cursorColor: Colors.grey,      // 👈 Cursor color
+                                  cursorHeight: 20,
+                                  decoration: const InputDecoration(
+                                    hintText: 'Search for shops and categorys',
+                                    hintStyle: TextStyle(color: Colors.grey),
+                                    border: InputBorder.none,
+                                  ),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      searchQuery = value;
+                                      // currentPage = 1; // Reset to first page when searching
+                                    });
+                                  },
+                                ),
+                              ),
+
+                            ],
+                          ),
+                        ),
+                      ),
+                      // TextField(
+                      //   decoration: InputDecoration(
+                      //     hintText: 'Search...',
+                      //     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      //     prefixIcon: Icon(Icons.search),
+                      //   ),
+                      //   onChanged: (value) {
+                      //     setState(() {
+                      //       searchQuery = value;
+                      //       currentPage = 1; // Reset to first page when searching
+                      //     });
+                      //   },
+                      // ),
+
+                      SizedBox(height: 20),
+                      Text('Categories', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                      SizedBox(height: 15),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: categories.map((cat) {
+                          return GestureDetector(
+                            // In your category onTap handler:
+                            onTap: () {
+                              setState(() {
+                                selectedCategory = cat['name']!;
+                                // currentPage = 1; // Reset to first page when changing category
+                              });
+                            },
+                            child: Column(
+                              children: [
+                                CircleAvatar(
+                                  backgroundImage: AssetImage(cat['image']!),
+                                  radius: 30,
+                                  backgroundColor: selectedCategory == cat['name']
+                                      ? Colors.blue.withOpacity(0.2)
+                                      : Colors.transparent,
+                                ),
+                                SizedBox(height: 5),
+                                Text(
+                                  cat['name']!,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: selectedCategory == cat['name']
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+
+                      SizedBox(height: 24,),
+
+                      isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : filteredShops.isEmpty
+                          ? const Center(
+                        child: Text(
+                          'No shops found matching your criteria',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                      )
+                          : Column(
+                        children: [
+                          GridView.count(
+                            crossAxisCount: 2,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            childAspectRatio: 0.75,
+                            mainAxisSpacing: 16,
+                            crossAxisSpacing: 16,
+                            children: filteredShops
+                                .map((shop) => _buildShopCard(
+                              shop.shopImage,
+                              shop.heading,
+                              shop.desc,
+                              shop.shopId,
+                              context,
+                            ))
+                                .toList(),
+                          ),
+                          // const SizedBox(height: 16),
+                          // if (totalPages > 1)
+                          //   Wrap(
+                          //     spacing: 8,
+                          //     children: List.generate(totalPages, (index) {
+                          //       int pageNumber = index + 1;
+                          //       return ElevatedButton(
+                          //         onPressed: () {
+                          //           setState(() {
+                          //             currentPage = pageNumber;
+                          //           });
+                          //         },
+                          //         style: ElevatedButton.styleFrom(
+                          //           backgroundColor: currentPage == pageNumber
+                          //               ? Colors.blue
+                          //               : Colors.grey.shade300,
+                          //           foregroundColor: currentPage == pageNumber
+                          //               ? Colors.white
+                          //               : Colors.black,
+                          //           padding: const EdgeInsets.symmetric(
+                          //             horizontal: 16,
+                          //             vertical: 8,
+                          //           ),
+                          //           shape: RoundedRectangleBorder(
+                          //             borderRadius: BorderRadius.circular(8),
+                          //           ),
+                          //         ),
+                          //         child: Text("$pageNumber"),
+                          //       );
+                          //     }),
+                          //   ),
+                        ],
+                      ),
+
+                      // SizedBox(height: 20,),
+                      // buildFundraisingSection(context),
+                      const SizedBox(height: 10),
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            // Eye icon and view count (optional for mobile top)
+
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.remove_red_eye, size: 32),
+                                    Text(
+                                      '$viewCount',
+                                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            Image.asset(
+                              'assets/images/gologo.png',
+                              height: 40,
+                            ),
+                            SizedBox(height: 20,),
+
+                            // Social Icon
+
+                            // Company Info Section (Left Column originally)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                // Image.asset(
+                                //   'assets/images/gologo.png',
+                                //   height: 40,
+                                // ),
+                                // const SizedBox(height: 12),
+                                GestureDetector(
+                                  onTap: () => _openWhatsApp(context),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: const [
+                                      Icon(Icons.phone, size: 16),
+                                      SizedBox(width: 8),
+                                      Text('+91 9461852060'),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                GestureDetector(
+                                  onTap: () => _openEmail(context),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: const [
+                                      Icon(Icons.email, size: 16),
+                                      SizedBox(width: 8),
+                                      Text('humansofruralindia@gmail.com'),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text('7 Siyag House, Gotan, Rajasthan 342902'),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+                            Wrap(
+                              spacing: 16,
+                              alignment: WrapAlignment.center,
+                              children: [
+                                GestureDetector(
+                                  onTap: () => _launchUrl('https://www.instagram.com/digistallapp/'),
+                                  child: Image.asset('assets/images/instagram.png', height: 32),
+                                ),
+                                GestureDetector(
+                                  onTap: () => _launchUrl('https://www.linkedin.com/company/humans-of-rural-india/'),
+                                  child: Image.asset('assets/images/linkedin.png', height: 32),
+                                ),
+                                GestureDetector(
+                                  onTap: () => _launchUrl('https://www.facebook.com/humansofruralindia/'),
+                                  child: Image.asset('assets/images/facebook.png', height: 32),
+                                ),
+                                GestureDetector(
+                                  onTap: () => _launchUrl('https://x.com/DigistallApp'),
+                                  child: Image.asset('assets/images/twitter.png', height: 32),
+                                ),
+                                GestureDetector(
+                                  onTap: () => _launchUrl('https://www.youtube.com/@digistall'),
+                                  child: Image.asset('assets/images/youtube.png', height: 32),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Legal Info (Center Column)
+                            Column(
+                              children: const [
+                                Text("Siyag Rural Market Private Limited [© Digistall]"),
+                                Text("CIN No. :- U52100RJ2021PTC077111"),
+                                Text("GSTIN :- 08ABGCS8909L1ZN"),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Right Column (Newsletter & Policies)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                GestureDetector(
+                                  onTap: () => _openUrl("https://digistall.substack.com/", context),
+                                  child: const Text("Newsletter"),
+                                ),
+                                const SizedBox(height: 8),
+                                GestureDetector(
+                                  onTap: () => _openUrl("https://digistall.in/privacy_and_policy", context),
+                                  child: const Text("Privacy Policy"),
+                                ),
+                                const SizedBox(height: 8),
+                                GestureDetector(
+                                  onTap: () => _openUrl("https://digistall.in/terms_and_conditions", context),
+                                  child: const Text("Terms and Condition"),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1461,7 +1477,7 @@ Widget _buildActionCard(String title, String imagePath) {
           title,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            fontWeight: FontWeight.w300,
+            fontWeight: FontWeight.w500,
             fontSize: 13,
             color: Colors.black,
           ),

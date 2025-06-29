@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 import 'package:gotan/global/common.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/UserProvider.dart';
@@ -150,79 +151,85 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> with CodeAuto
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xfff9fafc),
-      appBar: AppBar(
-        backgroundColor: const Color(0xfff9fafc),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Color(0xfff9fafc), // or any background
+        statusBarIconBrightness: Brightness.dark,
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.only(left: 24.0, right: 24.0, bottom: 24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                "Verify OTP",
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 30),
-              // TextField(
-              //   controller: otpController,
-              //   keyboardType: TextInputType.number,
-              //   decoration: InputDecoration(
-              //     hintText: "Enter OTP",
-              //     filled: true,
-              //     fillColor: Colors.white,
-              //     border: OutlineInputBorder(
-              //       borderRadius: BorderRadius.circular(10),
-              //       borderSide: BorderSide.none,
-              //     ),
-              //   ),
-              // ),
-
-              PinFieldAutoFill(
-                codeLength: 6,
-                controller: otpController,
-                decoration: UnderlineDecoration(
-                  textStyle: TextStyle(fontSize: 20, color: Colors.black),
-                  colorBuilder: FixedColorBuilder(Colors.black.withOpacity(0.3)),
-                ),
-                onCodeSubmitted: (code) {},
-                onCodeChanged: (code) {
-                  if (code != null && code.length == 6) {
-                    otpController.text = code;
-                    verifyOTP();
-                  }
-                },
-              ),
-
-
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: isVerifying ? null : verifyOTP,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: isVerifying
-                    ? SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2.5,
-                  ),
-                )
-                    : Text(
+      child: Scaffold(
+        backgroundColor: const Color(0xfff9fafc),
+        appBar: AppBar(
+          backgroundColor: const Color(0xfff9fafc),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.only(left: 24.0, right: 24.0, bottom: 24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
                   "Verify OTP",
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
                 ),
-              ),
-            ],
+                const SizedBox(height: 30),
+                // TextField(
+                //   controller: otpController,
+                //   keyboardType: TextInputType.number,
+                //   decoration: InputDecoration(
+                //     hintText: "Enter OTP",
+                //     filled: true,
+                //     fillColor: Colors.white,
+                //     border: OutlineInputBorder(
+                //       borderRadius: BorderRadius.circular(10),
+                //       borderSide: BorderSide.none,
+                //     ),
+                //   ),
+                // ),
+
+                PinFieldAutoFill(
+                  codeLength: 6,
+                  controller: otpController,
+                  decoration: UnderlineDecoration(
+                    textStyle: TextStyle(fontSize: 20, color: Colors.black),
+                    colorBuilder: FixedColorBuilder(Colors.black.withOpacity(0.3)),
+                  ),
+                  onCodeSubmitted: (code) {},
+                  onCodeChanged: (code) {
+                    if (code != null && code.length == 6) {
+                      otpController.text = code;
+                      verifyOTP();
+                    }
+                  },
+                ),
+
+
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: isVerifying ? null : verifyOTP,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: isVerifying
+                      ? SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2.5,
+                    ),
+                  )
+                      : Text(
+                    "Verify OTP",
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
