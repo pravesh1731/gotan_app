@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gotan/pages/PhoneInputPage.dart';
 import 'package:gotan/pages/shopMainScreen.dart';
+import 'package:gotan/pages/BookingInstant.dart';
 import 'package:http/http.dart' as http;
 import '../global/common.dart';
 import '../model/shop.dart';
@@ -34,6 +35,46 @@ class HomePage extends StatefulWidget {
 
 
 class _HomePageState extends State<HomePage> {
+  Future<bool> _checkActiveRideAndOpen(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    final orderId = prefs.getString('gotan_orderId');
+    final phoneNumber = prefs.getString('gotan_phone_number');
+    if (orderId != null && phoneNumber != null && orderId.isNotEmpty && phoneNumber.isNotEmpty) {
+      // Check status from backend
+      final url = Common.baseUrl + 'api/user/getCurrentRiderOrder';
+      final payload = {"phoneNumber": phoneNumber, "orderId": orderId};
+      try {
+        final response = await http.post(
+          Uri.parse(url),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode(payload),
+        );
+        if (response.statusCode == 200) {
+          final rideDetails = jsonDecode(response.body);
+          final status = rideDetails['riderStatus'] ?? '';
+          final canceled = rideDetails['canceled'] ?? false;
+          // If ride is delivered or cancelled, allow new booking
+          if (status == 'Delivered' || status == 'Cancelled' || canceled == true) {
+            // Remove orderId so user can book again
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.remove('gotan_orderId');
+            return false;
+          }
+          // Ride is still active, open BookingInstant
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => BookingInstant(phoneNumber: phoneNumber, orderId: orderId),
+            ),
+          );
+          return true;
+        }
+      } catch (e) {
+        // ignore error, allow new booking
+      }
+    }
+    return false;
+  }
 
 //   Future<void> sendDeviceDetailsToAPI() async {
 //     DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
@@ -754,17 +795,17 @@ class _HomePageState extends State<HomePage> {
                         children: [
                           Expanded(
                             child: GestureDetector(
-                              onTap: () async{
-                                // Navigator.push(
-                                //   context,
-                                //   MaterialPageRoute(builder: (context) => LocationPickerPage()),
-                                // );
-
+                              onTap: () async {
+                                // Check for active ride first
+                                bool opened = await _checkActiveRideAndOpen(context);
+                                if (opened) {
+                                  _searchFocusNode.unfocus();
+                                  return;
+                                }
+                                // No active ride, proceed as before
                                 if (phone != "0000000000") {
                                   var status = await Permission.location.status;
-
                                   if (status.isGranted) {
-                                    // ✅ Permission already granted, navigate
                                     await checkNotificationPermission(context);
                                     Navigator.push(
                                       context,
@@ -774,10 +815,8 @@ class _HomePageState extends State<HomePage> {
                                       )),
                                     );
                                   } else if (status.isPermanentlyDenied) {
-                                    // ❌ Permission permanently denied
                                     showPermissionSettingsDialog(context);
                                   } else {
-                                    // ❓ Not yet granted or denied, ask nowDeloi
                                     var newStatus = await Permission.location.request();
                                     if (newStatus.isGranted) {
                                       Navigator.push(
@@ -793,18 +832,10 @@ class _HomePageState extends State<HomePage> {
                                   }
                                 }
                                 if(phone=='0000000000')
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (context) => PhoneInputPage()
-                                ));
-                                // if(phone!='0000000000')
-                                // Navigator.push(
-                                //   context,
-                                //   MaterialPageRoute(builder: (context) => LottieSplashScreen(
-                                //     nextPage: LocationPickerPage(page:1),
-                                //     assetPath: 'assets/animations/travel.json',
-                                //   )),
-                                // );
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => PhoneInputPage()
+                                  ));
                                 _searchFocusNode.unfocus();
                               },
                               child: Container(

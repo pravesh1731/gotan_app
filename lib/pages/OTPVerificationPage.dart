@@ -14,7 +14,11 @@ import 'package:sms_autofill/sms_autofill.dart';
 
 class OTPVerificationPage extends StatefulWidget {
   final String verificationId;
-  OTPVerificationPage({required this.verificationId});
+  OTPVerificationPage({required this.verificationId}) {
+    if (verificationId.isEmpty) {
+      throw ArgumentError("verificationId cannot be empty");
+    }
+  }
 
   @override
   _OTPVerificationPageState createState() => _OTPVerificationPageState();
@@ -58,10 +62,15 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> with CodeAuto
 
   Future<void> verifyOTP() async {
     final otp = otpController.text.trim();
-
     if (otp.isEmpty || otp.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Please enter a valid 6-digit OTP")),
+      );
+      return;
+    }
+    if (widget.verificationId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Verification ID is missing. Please restart the login process.")),
       );
       return;
     }
@@ -106,14 +115,17 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> with CodeAuto
 
         final responseData = jsonDecode(response.body);
 
-        print(responseData);
+        print('Backend Response: $responseData');
+        print('User Name: ${responseData['name']}');
+        print('City Name: ${responseData['cityName']}');
+        print('User OTP: ${responseData['userOtp']}');
         print('====');
 
         SharedPreferences prefs = await SharedPreferences.getInstance();
 
-        await prefs.setString('gotan_name', responseData['name']);
-        await prefs.setString('gotan_city', responseData['cityName']);
-        await prefs.setString('gotan_userOtp', responseData['userOtp']);
+        await prefs.setString('gotan_name', responseData['name'] ?? "Customer");
+        await prefs.setString('gotan_city', responseData['cityName'] ?? "Gotan");
+        await prefs.setString('gotan_userOtp', responseData['userOtp'] ?? "");
 
         userProvider.loadFromPrefs(
           prefs.getString('gotan_name') ?? "Customer",
@@ -131,9 +143,10 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> with CodeAuto
               (route) => false,
         );
       } else {
-        //back print("onLogin API failed: ${response.body}");
+        print("Backend API failed with status: ${response.statusCode}");
+        print("Response body: ${response.body}");
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Login API failed")),
+          SnackBar(content: Text("Login API failed: ${response.statusCode}")),
         );
         setState(() {
           isVerifying = false;

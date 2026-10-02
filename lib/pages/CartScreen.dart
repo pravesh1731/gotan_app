@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:gotan/pages/GoogleLoginPage.dart';
+// import 'package:gotan/pages/GoogleLoginPage.dart';
 import 'package:provider/provider.dart';
 import '../global/common.dart';
 import '../model/cart_item.dart';
@@ -13,7 +13,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 import '../providers/WishlistProvider.dart';
-import 'GoogleSignInOnly.dart';
+// import 'GoogleSignInOnly.dart';
 
 class CartScreen extends StatefulWidget {
   final String storeId;
@@ -440,10 +440,10 @@ class _CartScreenState extends State<CartScreen> {
                                   final email = prefs.getString('user_email') ?? '';
 
                                   if (email.isEmpty) {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (context) => GoogleSignInScreen()),
-                                    );
+                                    // Navigator.push(
+                                    //   context,
+                                    //   MaterialPageRoute(builder: (context) => GoogleSignInScreen()),
+                                    // );
                                     return;
                                   }
 

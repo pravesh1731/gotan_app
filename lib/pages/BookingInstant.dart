@@ -24,6 +24,47 @@ class BookingInstant extends StatefulWidget {
 }
 
 class _BookingInstantState extends State<BookingInstant> {
+  Future<void> _cancelRide() async {
+    final url = Common.baseUrl + 'api/user/cancelRiderOrder';
+    final payload = {
+      "phoneNumber": widget.phoneNumber,
+      "orderId": widget.orderId,
+    };
+    bool backendSuccess = false;
+    String backendMessage = '';
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(payload),
+      );
+      backendMessage = response.body;
+      if (response.statusCode == 200) {
+        backendSuccess = true;
+      }
+    } catch (e) {
+      backendMessage = e.toString();
+    }
+    // Always remove orderId so user can book again
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('gotan_orderId');
+    if (mounted) {
+      if (backendSuccess) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ride cancelled successfully.')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Warning: Ride may not be cancelled on server. Details: $backendMessage')),
+        );
+      }
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => HomePage()),
+        (route) => false,
+      );
+    }
+  }
   Map<String, dynamic>? rideDetails;
   bool isLoading = true;
   Timer? _timer;
@@ -378,28 +419,31 @@ class _BookingInstantState extends State<BookingInstant> {
                 ),
               ),
 
-              Padding(
-                padding: const EdgeInsets.only(right:16.0, bottom: 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (_) => HomePage()),
-                        );
-                      },
-                      icon: const Icon(Icons.watch_later),
-                      label: const Text("Check Later"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey.shade300,
-                        foregroundColor: Colors.black,
+              if (!(rideDetails?['riderAccepted'] == true))
+                Padding(
+                  padding: const EdgeInsets.only(right:16.0, bottom: 30),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (_) => HomePage()),
+                          );
+                        },
+                        icon: const Icon(Icons.watch_later),
+                        label: const Text("Check Later"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey.shade300,
+                          foregroundColor: Colors.black,
+                        ),
                       ),
-                    ),
-                  ],
+                      
+            
+                    ],
+                  ),
                 ),
-              ),
               // if(rideDetails?['riderAccepted'] == true)
               //   SizedBox(height: 10,),
 

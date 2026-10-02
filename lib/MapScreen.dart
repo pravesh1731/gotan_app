@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:gotan/global/common.dart';
 import 'package:gotan/pages/BookingSummaryScreen.dart';
+import 'splash/LottieSplashScreenToHome.dart';
 import 'package:gotan/repo/directions_repository.dart';
 import 'model/directions.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lottie/lottie.dart' as lottie;
 import 'dart:convert';
 
 class MapScreen extends StatefulWidget {
@@ -28,6 +30,62 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
+  bool _isConfirming = false;
+
+  Future<void> _confirmBooking(BuildContext context, String orderId) async {
+    setState(() {
+      _isConfirming = true;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final phoneNumber = prefs.getString('gotan_phone_number') ?? '1234567890';
+      final distanceValue = double.parse(_info!.totalDistance.replaceAll(RegExp(r'[^0-9.]'), ''));
+      final priceMultiplier = selectedRide == "Bike" ? 1 : selectedRide == "Auto" ? 2 : 3;
+      final expectedPrice = (distanceValue * 10 * priceMultiplier).toStringAsFixed(2);
+      final payload = {
+        "phoneNumber": phoneNumber,
+        "orderId": orderId,
+        "expectedPrice": (double.parse(expectedPrice)).round(),
+        "distance": _info!.totalDistance,
+      };
+      final uri = Uri.parse(Common.baseUrl + 'api/user/acceptBookRiderOrder')
+          .replace(queryParameters: {'cityName': 'Gotan'});
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      );
+      setState(() {
+        _isConfirming = false;
+      });
+      if (response.statusCode == 200) {
+        final jsonData = jsonDecode(response.body);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => LottieSplashScreenToHome(orderId: orderId, phoneNumber: phoneNumber, isRide: true),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Booking confirmation failed: \\${response.body}')),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isConfirming = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: \\${e}')),
+      );
+    }
+  }
+  double _calculateFare(String rideType) {
+    if (_info == null) return 0.0;
+    final distanceValue = double.tryParse(_info!.totalDistance.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
+    final priceMultiplier = rideType == "Bike" ? 1 : rideType == "Auto" ? 2 : 3;
+    return distanceValue * 10 * priceMultiplier;
+  }
   static const _initialCameraPosition = CameraPosition(
     target: LatLng(28.6139, 77.2090),
     zoom: 11.5,
@@ -38,7 +96,7 @@ class _MapScreenState extends State<MapScreen> {
   Marker? _destination;
   Directions? _info;
 
-  DateTime? selectedDateTime;
+  DateTime get selectedDateTime => DateTime.now();
   String selectedRide = 'Bike';
   int passengerCount = 1;
   bool isLoading = false;
@@ -49,33 +107,7 @@ class _MapScreenState extends State<MapScreen> {
     'Car': 4,
   };
 
-  Future<void> _pickDateTime() async {
-    final date = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2100),
-    );
-
-    if (date == null) return;
-
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-    );
-
-    if (time == null) return;
-
-    setState(() {
-      selectedDateTime = DateTime(
-          date.year,
-          date.month,
-          date.day,
-          time.hour,
-          time.minute
-      );
-    });
-  }
+  // _pickDateTime removed: booking always uses current date/time
 
   void _selectRide(String ride) {
     setState(() {
@@ -89,14 +121,6 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      SystemChrome.setSystemUIOverlayStyle(
-        const SystemUiOverlayStyle(
-          statusBarColor: Colors.blue, // or any color you want
-          statusBarIconBrightness: Brightness.light, // use Brightness.light for white icons
-        ),
-      );
-    });
     _loadDirections();
   }
 
@@ -131,12 +155,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _bookRide() async {
-    if (selectedDateTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a date and time')),
-      );
-      return;
-    }
+
 
     setState(() => isLoading = true);
 
@@ -178,21 +197,8 @@ class _MapScreenState extends State<MapScreen> {
         final String orderId = jsonData['orderId'];
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('gotan_orderId', orderId);
-        //back print('===');
-        //back print(orderId);
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => BookingSummaryScreen(
-              pickup: widget.pick,
-              destination: widget.dest,
-              rideType: selectedRide,
-              passengers: passengerCount,
-              dateTime: selectedDateTime!,
-              distance: _info!.totalDistance,
-            ),
-          ),
-        );
+        // Directly confirm booking after booking is successful
+        await _confirmBooking(context, orderId);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Booking failed: ${response.body}')),
@@ -219,182 +225,198 @@ class _MapScreenState extends State<MapScreen> {
     //   statusBarColor: Colors.blue, // Match gradient start
     //   statusBarIconBrightness: Brightness.light,
     // ));
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: Colors.blue, // or any background
-        statusBarIconBrightness: Brightness.light,
-      ),
-      child: Scaffold(
-        resizeToAvoidBottomInset: true,
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(47),
-          child: Container(
-            alignment: Alignment.bottomCenter,
-            padding: const EdgeInsets.only(bottom: 16, right: 16, left: 16),
-            decoration: const BoxDecoration(
-              color: Colors.blue
-            ),
-            child: SafeArea(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back, color: Colors.white),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      resizeToAvoidBottomInset: true,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(47),
+        child: Container(
+          alignment: Alignment.bottomCenter,
+          padding: const EdgeInsets.only(bottom: 16, right: 16, left: 16),
+          decoration: const BoxDecoration(
+            color: Colors.white
+          ),
+          child: SafeArea(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: const Icon(Icons.arrow_back, color: Colors.black),
+                ),
+                const Text(
+                  "Book a Rider",
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
-                  const Text(
-                    "Book a Rider",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Opacity(
-                    opacity: 0.0,
-                    child: Icon(Icons.location_on, color: Colors.white, size: 20),
-                  ),
-                ],
-              ),
+                ),
+                const Opacity(
+                  opacity: 0.0,
+                  child: Icon(Icons.location_on, color: Colors.white, size: 20),
+                ),
+              ],
             ),
           ),
         ),
-        body: SafeArea(
-          child: Stack(
-            children: [
-              Column(
-                children: [
-                  Container(
-                    height: MediaQuery.of(context).size.height * 0.5,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        GoogleMap(
-                          myLocationButtonEnabled: false,
-                          zoomControlsEnabled: false,
-                          initialCameraPosition: _initialCameraPosition,
-                          onMapCreated: (controller) => _googleMapController = controller,
-                          markers: {
-                            if (_origin != null) _origin!,
-                            if (_destination != null) _destination!
-                          },
-                          polylines: {
-                            if (_info != null)
-                              Polyline(
-                                polylineId: const PolylineId('overview_polyline'),
-                                color: Colors.red,
-                                width: 5,
-                                points: _info!.polylinePoints
-                                    .map((e) => LatLng(e.latitude, e.longitude))
-                                    .toList(),
-                              ),
-                          },
-                        ),
-                        Positioned(
-                          bottom: 16,
-                          right: 16,
-                          child: FloatingActionButton(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.black,
-                            onPressed: () => _googleMapController?.animateCamera(
-                              _info != null
-                                  ? CameraUpdate.newLatLngBounds(_info!.bounds, 100.0)
-                                  : CameraUpdate.newCameraPosition(_initialCameraPosition),
-                            ),
-                            child: const Icon(Icons.center_focus_strong),
-                          ),
-                        ),
-                        if (_info != null)
-                          Positioned(
-                            top: 20.0,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 6.0,
-                                horizontal: 12.0,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.yellowAccent,
-                                borderRadius: BorderRadius.circular(20.0),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Colors.black26,
-                                    offset: Offset(0, 2),
-                                    blurRadius: 6.0,
-                                  )
+      ),
+      body: SafeArea(
+        child: Stack(
+          children: [
+            // Show pickup and drop location card at the top
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10)],
+              ),
+              child: Scrollbar(
+                thumbVisibility: true,
+                thickness: 4,
+                radius: Radius.circular(10),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Pickup & Drop Card
+                      Card(
+                        elevation: 4,
+                        color: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.location_on, color: Colors.green),
+                                  const SizedBox(width: 8),
+                                  const Text("Pickup",
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold, fontSize: 16)),
                                 ],
                               ),
-                              child: Text(
-                                '${_info!.totalDistance}, ${_info!.totalDuration}',
-                                style: const TextStyle(
-                                  fontSize: 18.0,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              const SizedBox(height: 4),
+                              Text(
+                                widget.pick,
+                                style: const TextStyle(fontSize: 14),
                               ),
-                            ),
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  const Icon(Icons.location_on, color: Colors.orange),
+                                  const SizedBox(width: 8),
+                                  const Text("Drop",
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold, fontSize: 16)),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                widget.dest,
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ],
                           ),
-                      ],
-                    ),
-                  ),
-
-                  // Bottom Container
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10)],
+                        ),
                       ),
-                      child: Scrollbar(
-                        thumbVisibility: true,
-                        thickness: 4,
-                        radius: Radius.circular(10),
-                        child: SingleChildScrollView(
+                      const SizedBox(height: 8),
+                      // Distance, City, and Booking Summary Image Card
+                      Card(
+                        elevation: 4,
+                        color: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
                           child: Column(
                             children: [
-                              const SizedBox(height: 10),
-                              InkWell(
-                                onTap: _pickDateTime,
-                                child: InputDecorator(
-                                  decoration: InputDecoration(
-                                    labelText: 'When do you want to ride?',
-                                    suffixIcon: const Icon(Icons.calendar_today),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.route, color: Colors.blue),
+                                      const SizedBox(width: 4),
+                                      Text('Distance: ${_info?.totalDistance ?? '--'}', style: const TextStyle(fontSize: 14)),
+                                    ],
                                   ),
-                                  child: Text(
-                                    selectedDateTime != null
-                                        ? '${selectedDateTime!.toLocal()}'.split('.')[0]
-                                        : 'Select Date & Time',
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.location_city, color: Colors.deepPurple),
+                                      const SizedBox(width: 4),
+                                      const Text('City: Gotan', style: TextStyle(fontSize: 14)),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Center(
+                                child: SizedBox(
+                                  height: 100,
+                                  child: Builder(
+                                    builder: (context) {
+                                      try {
+                                        // Try to use Lottie if available
+                                        return (Theme.of(context).platform == TargetPlatform.android || Theme.of(context).platform == TargetPlatform.iOS)
+                                            ? (lottie.Lottie.asset(
+                                                "assets/animations/booking.json",
+                                                fit: BoxFit.contain,
+                                              ))
+                                            : Icon(Icons.image, size: 60, color: Colors.blueGrey);
+                                      } catch (_) {
+                                        return Icon(Icons.image, size: 60, color: Colors.blueGrey);
+                                      }
+                                    },
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 10),
-
-                              // Ride Options
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Ride Options, Passenger Count, and Max Passengers in one rounded Card
+                      Card(
+                        elevation: 4,
+                        color: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            children: [
                               Row(
                                 children: [
                                   _rideOption(
-                                      icon: Icons.motorcycle,
-                                      label: 'Bike',
-                                      subtitle: 'Up to 1 passenger',
-                                      selected: selectedRide == 'Bike'),
+                                    icon: Icons.motorcycle,
+                                    label: 'Bike',
+                                    subtitle: 'Up to 1 passenger',
+                                    selected: selectedRide == 'Bike',
+                                    fare: _calculateFare('Bike'),
+                                  ),
                                   _rideOption(
-                                      icon: Icons.electric_rickshaw,
-                                      label: 'Auto',
-                                      subtitle: 'Up to 3 passengers',
-                                      selected: selectedRide == 'Auto'),
+                                    icon: Icons.electric_rickshaw,
+                                    label: 'Auto',
+                                    subtitle: 'Up to 3 passengers',
+                                    selected: selectedRide == 'Auto',
+                                    fare: _calculateFare('Auto'),
+                                  ),
                                   _rideOption(
-                                      icon: Icons.directions_car,
-                                      label: 'Car',
-                                      subtitle: 'Up to 4 passengers',
-                                      selected: selectedRide == 'Car'),
+                                    icon: Icons.directions_car,
+                                    label: 'Car',
+                                    subtitle: 'Up to 4 passengers',
+                                    selected: selectedRide == 'Car',
+                                    fare: _calculateFare('Car'),
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 10),
-
-                              // Passenger Count
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
@@ -423,52 +445,55 @@ class _MapScreenState extends State<MapScreen> {
                                 alignment: AlignmentDirectional.centerStart,
                                 child: Text('Maximum ${rideLimits[selectedRide]} passengers for $selectedRide'),
                               ),
-
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: OutlinedButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: const Text("Go Back"),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: ElevatedButton(
-                                      onPressed: isLoading ? null : _bookRide,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.blue,
-                                        shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12)),
-                                      ),
-                                      child: isLoading
-                                          ? SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: const CircularProgressIndicator(color: Colors.white, ),
-                                      )
-                                          : const Text("Book Now",
-                                          style: TextStyle(color: Colors.white)),
-                                    ),
-                                  ),
-                                ],
-                              ),
                             ],
                           ),
                         ),
                       ),
-                    ),
+
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text("Go Back"),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: isLoading ? null : _bookRide,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: isLoading
+                                  ? SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: const CircularProgressIndicator(color: Colors.white, ),
+                              )
+                                  : const Text("Confirm Booking",
+                                  style: TextStyle(color: Colors.white)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                   ),
-                ],
-              ),
-              if (isLoading)
-                const Center(
-                  child: CircularProgressIndicator(),
                 ),
-            ],
-          ),
+              ),
+            ),
+            // Loader in the center removed; only show loader in Book Now button
+          ],
         ),
+      ),
+      bottomNavigationBar: Container(
+        color: Colors.white,
+        height: 0,
+        child: const SizedBox(),
       ),
     );
   }
@@ -478,6 +503,7 @@ class _MapScreenState extends State<MapScreen> {
     required String label,
     required String subtitle,
     required bool selected,
+    required double fare,
   }) {
     return Expanded(
       child: InkWell(
@@ -498,6 +524,15 @@ class _MapScreenState extends State<MapScreen> {
               const SizedBox(height: 4),
               Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
               Text(subtitle, style: const TextStyle(fontSize: 10)),
+              const SizedBox(height: 4),
+              Text(
+                fare > 0 ? '₹${fare.toStringAsFixed(2)}' : '--',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green[700],
+                  fontSize: 14,
+                ),
+              ),
             ],
           ),
         ),

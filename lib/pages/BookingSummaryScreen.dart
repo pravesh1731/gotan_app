@@ -39,14 +39,14 @@ class _BookingSummaryScreenState extends State<BookingSummaryScreen> {
   void initState() {
     super.initState();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      SystemChrome.setSystemUIOverlayStyle(
-        const SystemUiOverlayStyle(
-          statusBarColor: Colors.blue, // or any color you want
-          statusBarIconBrightness: Brightness.light, // use Brightness.light for white icons
-        ),
-      );
-    });
+    // WidgetsBinding.instance.addPostFrameCallback((_) {
+    //   SystemChrome.setSystemUIOverlayStyle(
+    //     const SystemUiOverlayStyle(
+    //       statusBarColor: Colors.blue, // or any color you want
+    //       statusBarIconBrightness: Brightness.light, // use Brightness.light for white icons
+    //     ),
+    //   );
+    // });
   }
   Future<void> _confirmBooking(BuildContext context) async {
     setState(() {
@@ -136,105 +136,105 @@ class _BookingSummaryScreenState extends State<BookingSummaryScreen> {
     //   statusBarColor: Colors.blue, // Match gradient start
     //   statusBarIconBrightness: Brightness.light,
     // ));
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: Colors.blue, // or any background
-        statusBarIconBrightness: Brightness.light,
-      ),
-      child: Scaffold(
-        resizeToAvoidBottomInset: true,
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(47),
-          child: Container(
-            alignment: Alignment.bottomCenter,
-            padding: const EdgeInsets.only(bottom: 16, right: 16, left: 16),
-            decoration: const BoxDecoration(
-              color: Colors.blue
-            ),
-            child: SafeArea(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back, color: Colors.white),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      resizeToAvoidBottomInset: true,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(47),
+        child: Container(
+          alignment: Alignment.bottomCenter,
+          padding: const EdgeInsets.only(bottom: 16, right: 16, left: 16),
+          decoration: const BoxDecoration(
+            color: Colors.white
+          ),
+          child: SafeArea(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: const Icon(Icons.arrow_back, color: Colors.black),
+                ),
+                const Text(
+                  "Confirm Your Booking",
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
-                  const Text(
-                    "Confirm Your Booking",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Opacity(
-                    opacity: 0.0,
-                    child: Icon(Icons.location_on, color: Colors.white, size: 20),
-                  ),
-                ],
-              ),
+                ),
+                const Opacity(
+                  opacity: 0.0,
+                  child: Icon(Icons.location_on, color: Colors.black, size: 20),
+                ),
+              ],
             ),
           ),
         ),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
-                // Pickup & Drop Card
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Pickup
-                          Row(
-                            children: [
-                              const Icon(Icons.location_on, color: Colors.green),
-                              const SizedBox(width: 8),
-                              const Text("Pickup",
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold, fontSize: 16)),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            widget.pickup,
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                          const SizedBox(height: 16),
-                          // Drop
-                          Row(
-                            children: [
-                              const Icon(Icons.location_on, color: Colors.orange),
-                              const SizedBox(width: 8),
-                              const Text("Drop",
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold, fontSize: 16)),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            widget.destination,
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                        ],
-                      ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 20),
+              // Pickup & Drop Card
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Card(
+                  elevation: 4,
+                  color: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Pickup
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on, color: Colors.green),
+                            const SizedBox(width: 8),
+                            const Text("Pickup",
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 16)),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.pickup,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                        const SizedBox(height: 16),
+                        // Drop
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on, color: Colors.orange),
+                            const SizedBox(width: 8),
+                            const Text("Drop",
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 16)),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.destination,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ],
                     ),
                   ),
                 ),
+              ),
 
-                const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-                // Booking Summary
-                Column(
+              // Booking Summary
+              Card(
+                elevation: 6,
+                color: Colors.white,
+                child: Column(
                   children: [
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -276,48 +276,51 @@ class _BookingSummaryScreenState extends State<BookingSummaryScreen> {
 
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-                          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
-                        ),
-                        child: Column(
-                          children: [
-                            // Journey Details
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text("Journey Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                  const SizedBox(height: 8),
-                                  _infoRow("Vehicle Type", widget.rideType),
-                                  _infoRow("Distance", widget.distance),
-                                  _infoRow("Pickup Time", _formatDateTime(widget.dateTime)),
-                                  _infoRow("City", "Gotan"),
-                                  const SizedBox(height: 16),
+                      child: Card(
+                        elevation: 6,
+                        child: Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+                            // boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                          ),
+                          child: Column(
+                            children: [
+                              // Journey Details
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text("Journey Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                    const SizedBox(height: 8),
+                                    _infoRow("Vehicle Type", widget.rideType),
+                                    _infoRow("Distance", widget.distance),
+                                    _infoRow("Pickup Time", _formatDateTime(widget.dateTime)),
+                                    _infoRow("City", "Gotan"),
+                                    const SizedBox(height: 16),
 
-                                  // Fare Details
-                                  const Text("Fare Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                  const SizedBox(height: 8),
-                                  _infoRow(
-                                      "Base fare",
-                                      '₹${_calculatePrice().toStringAsFixed(2)}'
-                                  ),
-                                  _infoRow("Service fee", "₹--"),
-                                  const Divider(),
-                                  _infoRow(
-                                      "Total",
-                                      '₹${_calculatePrice().toStringAsFixed(2)}',
-                                      isBold: true
-                                  ),
-                                  const SizedBox(height: 16),
-                                ],
+                                    // Fare Details
+                                    const Text("Fare Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                    const SizedBox(height: 8),
+                                    _infoRow(
+                                        "Base fare",
+                                        '₹${_calculatePrice().toStringAsFixed(2)}'
+                                    ),
+                                    _infoRow("Service fee", "₹--"),
+                                    const Divider(),
+                                    _infoRow(
+                                        "Total",
+                                        '₹${_calculatePrice().toStringAsFixed(2)}',
+                                        isBold: true
+                                    ),
+                                    const SizedBox(height: 16),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -366,14 +369,20 @@ class _BookingSummaryScreenState extends State<BookingSummaryScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 30),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
+      bottomNavigationBar: Container(
+        color: Colors.white,
+        height: 0,
+        child: const SizedBox(),
+      ),
+
     );
   }
 

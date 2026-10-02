@@ -150,6 +150,7 @@ class _PhoneInputPageState extends State<PhoneInputPage> {
 
       await FirebaseAuth.instance.verifyPhoneNumber(
         phoneNumber: '$countryCode${phone.trim()}',
+        timeout: Duration(seconds: 120), // Increased timeout to 2 minutes
         verificationCompleted: (PhoneAuthCredential credential) async {
           // await FirebaseAuth.instance.signInWithCredential(credential);
         },
@@ -165,12 +166,18 @@ class _PhoneInputPageState extends State<PhoneInputPage> {
           setState(() {
             isLoading = false;
           });
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => OTPVerificationPage(verificationId: verId),
-            ),
-          );
+          if (verId != null && verId.isNotEmpty) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OTPVerificationPage(verificationId: verId),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("Failed to send OTP. Please try again.")),
+            );
+          }
         },
         codeAutoRetrievalTimeout: (String verId) {
           setState(() {

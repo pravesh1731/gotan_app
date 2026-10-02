@@ -19,6 +19,29 @@ class MyProfileScreen extends StatefulWidget {
 }
 
 class _MyProfileScreenState extends State<MyProfileScreen> {
+  // Fetch OTP from backend (MongoDB)
+  Future<String?> fetchOtpFromBackend() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final phoneNumber = prefs.getString('gotan_phone_number') ?? "0000000000";
+      final response = await http.post(
+        Uri.parse(Common.baseUrl + "api/user/getuser"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"phoneNumber": phoneNumber}),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data != null && data["userOtp"] != null && data["userOtp"].toString().isNotEmpty) {
+          return data["userOtp"].toString();
+        }
+      }
+    } catch (e) {
+      print("Error fetching OTP from backend: $e");
+    }
+    return null;
+  }
+  // Add a refresh indicator key
+  final GlobalKey<RefreshIndicatorState> _refreshKey = GlobalKey<RefreshIndicatorState>();
   String userName = "Customer";
   String phone = "0000000000";
   String otp = "---";
@@ -41,10 +64,22 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       prefs.getString('gotan_phone_number') ?? "0000000000",
     );
 
+    String? gotanOtp = prefs.getString('gotan_userOtp');
+    print('DEBUG: Loaded OTP from SharedPreferences: '
+        '${gotanOtp == null ? 'null' : gotanOtp.isEmpty ? 'EMPTY' : gotanOtp}');
+
+    // If OTP is missing, fetch from backend
+    if (gotanOtp == null || gotanOtp.isEmpty) {
+      gotanOtp = await fetchOtpFromBackend();
+      if (gotanOtp != null && gotanOtp.isNotEmpty) {
+        await prefs.setString('gotan_userOtp', gotanOtp);
+      }
+    }
+
     setState(() {
       userName = prefs.getString('gotan_name') ?? "Customer";
       phone = prefs.getString('gotan_phone_number') ?? "0000000000";
-      otp = prefs.getString('gotan_userOtp') ?? "---";
+      otp = (gotanOtp == null || gotanOtp.isEmpty) ? "Not set" : gotanOtp;
       String? imagePath = prefs.getString('avatar_path');
       if (imagePath != null && File(imagePath).existsSync()) {
         _avatarImage = File(imagePath);
@@ -318,24 +353,42 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         statusBarIconBrightness: Brightness.dark, // for iOS
       ),
       child: Scaffold(
-        backgroundColor: Colors.white.withOpacity(0.95),
+        backgroundColor: const Color(0xfff9fafc),
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: const Color(0xfff9fafc),
           elevation: 0,
-          title: Text('My Profile',
-              style: TextStyle(
-                  color: Colors.blue[800], fontWeight: FontWeight.bold)),
-          centerTitle: true,
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios_new, color: Colors.black87),
-            onPressed: () => Navigator.pop(context),
-          ),
+          title: Text('My Profile', style: TextStyle(color: Colors.black)),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.refresh, color: Colors.black),
+              onPressed: () async {
+                await loadProfileData();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Profile refreshed!')),
+                );
+              },
+              tooltip: 'Refresh Profile',
+            ),
+          ],
+          iconTheme: IconThemeData(color: Colors.black),
         ),
-        body: SingleChildScrollView(
-          child: Column(
+        body: SafeArea(
+          child: Stack(
             children: [
-              _buildHeaderCard(),
-              _buildSettingsSection(),
+              SingleChildScrollView(
+                child: Column(
+                  children: [
+                    _buildHeaderCard(),
+                    _buildSettingsSection(),
+                  ],
+                ),
+              ),
+              // Example Positioned widget with a child (replace with your actual widget if needed)
+              // Positioned(
+              //   top: 20,
+              //   right: 20,
+              //   child: Icon(Icons.account_circle, size: 32, color: Colors.blue),
+              // ),
             ],
           ),
         ),

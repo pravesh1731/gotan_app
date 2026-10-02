@@ -19,6 +19,7 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
   Future<void> sendOTP() async {
     await FirebaseAuth.instance.verifyPhoneNumber(
       phoneNumber: '$countryCode${phoneController.text.trim()}',
+      timeout: Duration(seconds: 120), // Increased timeout to 2 minutes
       verificationCompleted: (PhoneAuthCredential credential) async {
         await FirebaseAuth.instance.signInWithCredential(credential);
       },

@@ -22,14 +22,14 @@ class _LottieSplashScreenState extends State<LottieSplashScreen> {
   void initState() {
     super.initState();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      SystemChrome.setSystemUIOverlayStyle(
-        const SystemUiOverlayStyle(
-          statusBarColor: Colors.white, // or any color you want
-          statusBarIconBrightness: Brightness.dark, // use Brightness.light for white icons
-        ),
-      );
-    });
+    // WidgetsBinding.instance.addPostFrameCallback((_) {
+    //   SystemChrome.setSystemUIOverlayStyle(
+    //     const SystemUiOverlayStyle(
+    //       statusBarColor: Colors.white, // or any color you want
+    //       statusBarIconBrightness: Brightness.dark, // use Brightness.light for white icons
+    //     ),
+    //   );
+    // });
 
     Timer(const Duration(seconds: 3), () {
       Navigator.pushReplacement(
@@ -42,20 +42,14 @@ class _LottieSplashScreenState extends State<LottieSplashScreen> {
   @override
   Widget build(BuildContext context) {
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: Colors.white, // or any background
-        statusBarIconBrightness: Brightness.dark,
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: Center(
-          child: Lottie.asset(
-            widget.assetPath,
-            width: 300,
-            height: 300,
-            fit: BoxFit.contain,
-          ),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Lottie.asset(
+          widget.assetPath,
+          width: 300,
+          height: 300,
+          fit: BoxFit.contain,
         ),
       ),
     );

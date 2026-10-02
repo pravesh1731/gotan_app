@@ -4,7 +4,6 @@ import '../providers/CartProvider.dart';
 import '../providers/WishlistProvider.dart'; // Make sure to import your WishlistProvider
 import '../testing/CheckoutScreen.dart';
 import 'CartScreen.dart';
-import 'GoogleLoginPage.dart';
 import 'OrderHistoryPage.dart';
 import 'ShopPage.dart';
 import 'WishlistScreen.dart';
@@ -29,11 +28,11 @@ class _ShopMainScreenState extends State<ShopMainScreen> {
   void initState() {
     super.initState();
     _screens = [
-      WishlistScreen(shopId: widget.shopId),
-      CheckoutScreen(storeId: widget.shopId),
-      ShopScreen(shopId: widget.shopId),
-      OrderHistoryPage(),
-      GoogleLoginAndProfilePage(),
+  WishlistScreen(shopId: widget.shopId),
+  CheckoutScreen(storeId: widget.shopId),
+  ShopScreen(shopId: widget.shopId),
+  OrderHistoryPage(),
+  // GoogleLoginAndProfilePage(),
     ];
   }
 
