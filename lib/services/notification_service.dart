@@ -1,176 +1,92 @@
-import 'dart:convert';
+import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../global/common.dart';
+import 'api.dart';
+import 'session.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-  FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+
+  final StreamController<RemoteMessage> _messages = StreamController<RemoteMessage>.broadcast();
+
+  /// Foreground pushes (e.g. "Rider Booked", "Order In Transit"). Tracking
+  /// screens listen to refresh immediately instead of waiting for the next poll.
+  Stream<RemoteMessage> get messages => _messages.stream;
+
+  static const _channel = AndroidNotificationDetails(
+    'order_channel_id',
+    'Order Notifications',
+    channelDescription: 'Ride, parcel and order updates',
+    importance: Importance.max,
+    priority: Priority.high,
+    icon: '@drawable/logo',
+  );
 
   Future<void> saveFcmTokenLocally(String token) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? existingToken = prefs.getString('deviceToken');
-    if (existingToken != token) {
-      await prefs.setString('deviceToken', token);
-      print("✅ FCM Token saved in SharedPreferences");
-      print(token);
+    final prefs = await Session.prefs;
+    if (prefs.getString(Session.kDeviceToken) != token) {
+      await prefs.setString(Session.kDeviceToken, token);
     }
   }
 
   Future<void> initialize() async {
-    const AndroidInitializationSettings androidInitSettings =
-    AndroidInitializationSettings('@drawable/logo');
-
-    const InitializationSettings initSettings = InitializationSettings(
-      android: androidInitSettings,
+    const initSettings = InitializationSettings(
+      android: AndroidInitializationSettings('@drawable/logo'),
     );
-
     await flutterLocalNotificationsPlugin.initialize(initSettings);
 
-    // Get token on app start
     FirebaseMessaging.instance.getToken().then((token) {
-      if (token != null) {
-        print("🔑 FCM Token: $token");
-        saveFcmTokenLocally(token);
+      if (token != null) saveFcmTokenLocally(token);
+    }).catchError((Object e) {
+      debugPrint('FCM token unavailable: $e');
+    });
+
+    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+      await saveFcmTokenLocally(newToken);
+      // Keep the backend in sync so ride/parcel pushes reach this device.
+      final phone = await Session.phone();
+      if (phone != null) {
+        try {
+          await Api.authenticate(phone, deviceToken: newToken);
+        } catch (e) {
+          debugPrint('Failed to sync refreshed FCM token: $e');
+        }
       }
     });
 
-    // Listen for token refresh
-    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
-      print("🔄 Refreshed FCM Token: $newToken");
-      saveFcmTokenLocally(newToken);
-    });
-
-    // FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    //   print('====');
-    //   print('Foreground message triggered');
-    //   RemoteNotification? notification = message.notification;
-    //   AndroidNotification? android = message.notification?.android;
-    //
-    //   if (notification != null && android != null) {
-    //     flutterLocalNotificationsPlugin.show(
-    //       notification.hashCode,
-    //       notification.title,
-    //       notification.body,
-    //       const NotificationDetails(
-    //         android: AndroidNotificationDetails(
-    //           'order_channel_id',
-    //           'Order Notifications',
-    //           importance: Importance.max,
-    //           priority: Priority.high,
-    //           icon: '@drawable/logo',
-    //         ),
-    //       ),
-    //     );
-    //   }
-    // });
-
-    // FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    //   if (message.notification != null) {
-    //     print("📢 Foreground Notification: ${message.notification!.title}");
-    //     // Optional: show a snackbar or local notification if you want
-    //   }
-    //   // final data = message.data;
-    //   // final title = data['title'];
-    //   // final body = data['body'];
-    //   //
-    //   // flutterLocalNotificationsPlugin.show(
-    //   //   message.hashCode,
-    //   //   title,
-    //   //   body,
-    //   //   const NotificationDetails(
-    //   //     android: AndroidNotificationDetails(
-    //   //       'order_channel_id',
-    //   //       'Order Notifications',
-    //   //       importance: Importance.max,
-    //   //       priority: Priority.high,
-    //   //       icon: '@drawable/logo',
-    //   //     ),
-    //   //   ),
-    //   // );
-    // });
-
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('📢 Foreground message received');
-
-      RemoteNotification? notification = message.notification;
-      AndroidNotification? android = message.notification?.android;
-
-      if (notification != null && android != null) {
+      _messages.add(message);
+      final notification = message.notification;
+      if (notification != null) {
         flutterLocalNotificationsPlugin.show(
           notification.hashCode,
           notification.title,
           notification.body,
-          const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'order_channel_id',
-              'Order Notifications',
-              importance: Importance.max,
-              priority: Priority.high,
-              icon: '@drawable/logo',
-            ),
-          ),
+          const NotificationDetails(android: _channel),
         );
       }
     });
-
-
-
-    print("📡 Firebase onMessage listener attached globally.");
   }
 
-  // Call this when switching user accounts (logout/login)
-  // Future<void> resetFcmToken() async {
-  //   await FirebaseMessaging.instance.deleteToken();
-  //   String? token = await FirebaseMessaging.instance.getToken();
-  //   if (token != null) {
-  //     print("🔑 FCM Token: $token");
-  //     saveFcmTokenLocally(token);
-  //     //call here
-  //   }
-  // }
-
+  /// Call after switching accounts: issues a fresh token so the previous user's
+  /// pushes stop arriving, then registers it for the current phone number.
   Future<void> resetFcmToken() async {
-    await FirebaseMessaging.instance.deleteToken();
-    String? token = await FirebaseMessaging.instance.getToken();
-    if (token != null) {
-      print("🔑 FCM Token: $token");
+    try {
+      await FirebaseMessaging.instance.deleteToken();
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token == null) return;
       await saveFcmTokenLocally(token);
-
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? phoneNumber = prefs.getString('gotan_phone_number');
-
-      if (phoneNumber == null || phoneNumber.isEmpty) {
-        print("⚠️ Phone number not found in SharedPreferences.");
-        return;
-      }
-
-      try {
-        final response = await http.post(
-          Uri.parse("${Common.baseUrl}api/auth/authenticate"),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            "cityName": "Gotan",
-            "phoneNumber": phoneNumber,
-            "deviceToken": token,
-          }),
-        );
-
-        print("📬 Token update API response: ${response.statusCode} - ${response.body}");
-      } catch (e) {
-        print("❌ Failed to update token on server: $e");
-        // Optionally show a toast or store this to retry later
-      }
+      final phone = await Session.phone();
+      if (phone != null) await Api.authenticate(phone, deviceToken: token);
+    } catch (e) {
+      debugPrint('Failed to reset FCM token: $e');
     }
   }
-
-
 }

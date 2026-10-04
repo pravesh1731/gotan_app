@@ -21,20 +21,23 @@ class CartItemAdapter extends TypeAdapter<CartItem> {
       name: fields[1] as String,
       category: fields[2] as String,
       imageUrl: fields[3] as String,
-      price: fields[4] as int,
-      discountPrice: fields[5] as int,
+      price: fields[4] as num,
+      discountPrice: fields[5] as num,
       units: fields[6] as int,
       unitType: fields[7] as String,
       productRibbon: fields[8] as String,
       quantity: fields[9] as int,
       description: fields[10] as String,
+      storeId: fields[11] == null ? '' : fields[11] as String,
+      size: fields[12] == null ? '' : fields[12] as String,
+      color: fields[13] == null ? '' : fields[13] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, CartItem obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(14)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -56,7 +59,13 @@ class CartItemAdapter extends TypeAdapter<CartItem> {
       ..writeByte(9)
       ..write(obj.quantity)
       ..writeByte(10)
-      ..write(obj.description);
+      ..write(obj.description)
+      ..writeByte(11)
+      ..write(obj.storeId)
+      ..writeByte(12)
+      ..write(obj.size)
+      ..writeByte(13)
+      ..write(obj.color);
   }
 
   @override

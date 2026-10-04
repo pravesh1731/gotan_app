@@ -1,550 +1,350 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:gotan/global/common.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
+import '../global/common.dart';
+import '../model/booking.dart';
 import '../providers/UserProvider.dart';
+import '../services/api.dart';
+import '../theme/app_theme.dart';
+import '../utils/launch.dart';
+import '../widgets/ui.dart';
+import 'BookingHistoryScreen.dart';
+import 'OrderHistoryPage.dart';
 import 'PhoneInputPage.dart';
 
 class MyProfileScreen extends StatefulWidget {
+  const MyProfileScreen({super.key});
+
   @override
   State<MyProfileScreen> createState() => _MyProfileScreenState();
 }
 
 class _MyProfileScreenState extends State<MyProfileScreen> {
-  // Fetch OTP from backend (MongoDB)
-  Future<String?> fetchOtpFromBackend() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final phoneNumber = prefs.getString('gotan_phone_number') ?? "0000000000";
-      final response = await http.post(
-        Uri.parse(Common.baseUrl + "api/user/getuser"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"phoneNumber": phoneNumber}),
-      );
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data != null && data["userOtp"] != null && data["userOtp"].toString().isNotEmpty) {
-          return data["userOtp"].toString();
-        }
-      }
-    } catch (e) {
-      print("Error fetching OTP from backend: $e");
-    }
-    return null;
-  }
-  // Add a refresh indicator key
-  final GlobalKey<RefreshIndicatorState> _refreshKey = GlobalKey<RefreshIndicatorState>();
-  String userName = "Customer";
-  String phone = "0000000000";
-  String otp = "---";
-  File? _avatarImage;
+  bool _uploading = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      loadProfileData();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh(silent: true));
   }
 
-  Future<void> loadProfileData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-
-    userProvider.loadFromPrefs(
-      prefs.getString('gotan_name') ?? "Customer",
-      prefs.getString('gotan_phone_number') ?? "0000000000",
-    );
-
-    String? gotanOtp = prefs.getString('gotan_userOtp');
-    print('DEBUG: Loaded OTP from SharedPreferences: '
-        '${gotanOtp == null ? 'null' : gotanOtp.isEmpty ? 'EMPTY' : gotanOtp}');
-
-    // If OTP is missing, fetch from backend
-    if (gotanOtp == null || gotanOtp.isEmpty) {
-      gotanOtp = await fetchOtpFromBackend();
-      if (gotanOtp != null && gotanOtp.isNotEmpty) {
-        await prefs.setString('gotan_userOtp', gotanOtp);
-      }
-    }
-
-    setState(() {
-      userName = prefs.getString('gotan_name') ?? "Customer";
-      phone = prefs.getString('gotan_phone_number') ?? "0000000000";
-      otp = (gotanOtp == null || gotanOtp.isEmpty) ? "Not set" : gotanOtp;
-      String? imagePath = prefs.getString('avatar_path');
-      if (imagePath != null && File(imagePath).existsSync()) {
-        _avatarImage = File(imagePath);
-      }
-    });
-  }
-
-  Future<void> saveProfileImage(XFile image) async {
-    final directory = await getApplicationDocumentsDirectory();
-    final path = "${directory.path}/profile_avatar.png";
-    await image.saveTo(path);
-
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString('avatar_path', path); // ✅ await added
-    setState(() {
-      _avatarImage = File(path);
-    });
-  }
-
-  Future<void> showChangeNameDialog() async {
-    final controller = TextEditingController();
-    final screenWidth = MediaQuery.of(context).size.width;
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-
-    await showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        titlePadding: EdgeInsets.only(top: 20, left: 24, right: 24),
-        contentPadding: EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 24),
-        actionsPadding: EdgeInsets.only(right: 16, bottom: 16),
-        title: Text(
-          "Change Your Name",
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
-        content: SizedBox(
-          width: screenWidth * 0.9, // ⬅️ 90% of screen width
-          child: TextField(
-            controller: controller,
-            decoration: InputDecoration(
-              hintText: "Enter new name",
-              filled: true,
-              fillColor: Colors.grey.shade100,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-            ),
-          ),
-        ),
-        actions: [
-          OutlinedButton(
-            onPressed: () => Navigator.pop(context),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: Colors.grey.shade400),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
-            ),
-            child: Text("Cancel", style: TextStyle(color: Colors.black)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final newName = controller.text.trim();
-              if (newName.isEmpty) return;
-
-              final response = await http.post(
-                Uri.parse(Common.baseUrl + "api/auth/newname"),
-                headers: {'Content-Type': 'application/json'},
-                body: jsonEncode({"name": newName, "phoneNumber": phone}),
-              );
-
-              if (response.statusCode == 200) {
-                SharedPreferences prefs = await SharedPreferences.getInstance();
-                await prefs.setString('gotan_name', newName);
-
-                userProvider.updateName(newName);
-                setState(() {
-                  userName = newName;
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text("Name updated successfully"),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-                Navigator.pop(context);
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text("Update failed"),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFF2563EB), // blue-600
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
-            ),
-            child: Text("Save", style: TextStyle(color: Colors.white),),
-          ),
-        ],
-      ),
-    );
-  }
-
-
-
-  Future<void> logout() async {
-    final screenWidth = MediaQuery.of(context).size.width;
-    await showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        titlePadding: EdgeInsets.only(top: 20, left: 24, right: 24),
-        contentPadding: EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 24),
-        actionsPadding: EdgeInsets.only(right: 16, bottom: 16),
-        title: Text(
-          "Confirm Logout",
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
-        content: SizedBox(
-          width: screenWidth * 0.9, // ⬅️ 90% of screen width
-          child: Text("Are you sure you want to logout?"),
-        ),
-        actions: [
-          OutlinedButton(
-            onPressed: () => Navigator.pop(context),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: Colors.grey.shade400),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
-            ),
-            child: Text("Cancel", style: TextStyle(color: Colors.black)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(context).pop(); // Close the dialog
-              SharedPreferences prefs = await SharedPreferences.getInstance();
-              await prefs.clear();
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => PhoneInputPage()),
-                    (route) => false,
-              ); // Your logout method
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFF2563EB), // blue-600
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
-            ),
-            child: Text("Logout", style: TextStyle(color: Colors.white),),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> pickImage() async {
-    final picker = ImagePicker();
-    final XFile? pickedImage =
-    await picker.pickImage(source: ImageSource.gallery);
-
-    if (pickedImage != null) {
-      await saveProfileImage(pickedImage);
+  Future<void> _refresh({bool silent = false}) async {
+    try {
+      await context.read<UserProvider>().refresh();
+    } catch (e) {
+      if (!silent && mounted) showAppSnack(context, e.toString(), error: true);
     }
   }
 
-  Future<void> showAddPasswordDialog() async {
-    final passwordController = TextEditingController();
-    final screenWidth = MediaQuery.of(context).size.width;
+  Future<void> _changePhoto() async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 800, imageQuality: 80);
+    if (picked == null || !mounted) return;
+    final user = context.read<UserProvider>();
+    setState(() => _uploading = true);
+    try {
+      final url = await Api.uploadProfileImage(user.phone, File(picked.path));
+      await user.setProfileImage(url);
+      if (mounted) showAppSnack(context, 'Profile photo updated');
+    } catch (e) {
+      if (mounted) showAppSnack(context, e.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
 
-    await showDialog(
+  Future<void> _editName() async {
+    final user = context.read<UserProvider>();
+    final controller = TextEditingController(text: user.name == 'Customer' ? '' : user.name);
+    final name = await showDialog<String>(
       context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        titlePadding: EdgeInsets.only(top: 20, left: 24, right: 24),
-        contentPadding: EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 24),
-        actionsPadding: EdgeInsets.only(right: 16, bottom: 16),
-        title: Text(
-          "Set Password",
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
-        content: SizedBox(
-          width: screenWidth * 0.9,
-          child: TextField(
-            controller: passwordController,
-            obscureText: true,
-            decoration: InputDecoration(
-              hintText: "Enter new password",
-              filled: true,
-              fillColor: Colors.grey.shade100,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-            ),
-          ),
+      builder: (ctx) => AlertDialog(
+        title: const Text('Your name'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(hintText: 'Full name'),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
         ),
         actions: [
-          OutlinedButton(
-            onPressed: () => Navigator.pop(context),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: Colors.grey.shade400),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
-            ),
-            child: Text("Cancel", style: TextStyle(color: Colors.black)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final password = passwordController.text.trim();
-              if (password.isEmpty) return;
-
-              final response = await http.post(
-                Uri.parse(Common.baseUrl+"api/auth/adduserpassword"),
-                headers: {'Content-Type': 'application/json'},
-                body: jsonEncode({
-                  "phoneNumber": phone,
-                  "password": password,
-                }),
-              );
-
-              if (response.statusCode == 200) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text("Password added successfully"),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text("Failed to add password"),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFF2563EB),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
-            ),
-            child: Text("Confirm", style: TextStyle(color: Colors.white)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('Save')),
         ],
       ),
     );
+    if (name == null || name.isEmpty || !mounted) return;
+    try {
+      await Api.updateName(user.phone, name);
+      await user.refresh();
+      if (mounted) showAppSnack(context, 'Name updated');
+    } catch (e) {
+      if (mounted) showAppSnack(context, e.toString(), error: true);
+    }
   }
 
+  Future<void> _setPassword() async {
+    final user = context.read<UserProvider>();
+    final pass = TextEditingController();
+    final confirm = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Set a password'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Use it to log in without an OTP.', style: TextStyle(color: AppColors.textSecondary)),
+            const SizedBox(height: 14),
+            TextField(controller: pass, obscureText: true, decoration: const InputDecoration(hintText: 'New password')),
+            const SizedBox(height: 10),
+            TextField(controller: confirm, obscureText: true, decoration: const InputDecoration(hintText: 'Confirm password')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    if (pass.text.length < 6) {
+      showAppSnack(context, 'Password must be at least 6 characters', error: true);
+      return;
+    }
+    if (pass.text != confirm.text) {
+      showAppSnack(context, 'Passwords do not match', error: true);
+      return;
+    }
+    try {
+      await Api.setPassword(user.phone, pass.text);
+      if (mounted) showAppSnack(context, 'Password saved');
+    } catch (e) {
+      if (mounted) showAppSnack(context, e.toString(), error: true);
+    }
+  }
+
+  Future<void> _logout() async {
+    final ok = await confirmDialog(context, title: 'Log out?', message: 'You can log back in with OTP or password.', confirmLabel: 'Log out');
+    if (!ok || !mounted) return;
+    await context.read<UserProvider>().logout();
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const PhoneInputPage()), (_) => false);
+  }
+
+  Future<void> _deleteAccount() async {
+    final ok = await confirmDialog(
+      context,
+      title: 'Delete your account?',
+      message: 'Your Gotan account, ride and parcel history will be permanently deleted. This cannot be undone.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    );
+    if (!ok || !mounted) return;
+    final user = context.read<UserProvider>();
+    try {
+      await Api.deleteAccount(user.phone);
+      await user.logout();
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const PhoneInputPage()), (_) => false);
+      showAppSnack(context, 'Your account has been deleted');
+    } catch (e) {
+      if (mounted) showAppSnack(context, e.toString(), error: true);
+    }
+  }
+
+  void _showHelp() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(12),
+                child: Text('Help & support', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.call_outlined, color: AppColors.teal),
+                title: const Text('Call us'),
+                subtitle: const Text('+91 ${Common.supportPhone}'),
+                onTap: () => callNumber(context, Common.supportPhone),
+              ),
+              ListTile(
+                leading: const Icon(Icons.chat_outlined, color: AppColors.success),
+                title: const Text('WhatsApp'),
+                onTap: () => openWhatsApp(context, Common.supportPhone, text: 'Hi, I need help with the Gotan app.'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.mail_outline_rounded, color: AppColors.textSecondary),
+                title: const Text('Email'),
+                subtitle: const Text(Common.supportEmail),
+                onTap: () => emailSupport(context),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: Colors.white, // or any background
-        statusBarIconBrightness: Brightness.dark, // for iOS
-      ),
-      child: Scaffold(
-        backgroundColor: const Color(0xfff9fafc),
-        appBar: AppBar(
-          backgroundColor: const Color(0xfff9fafc),
-          elevation: 0,
-          title: Text('My Profile', style: TextStyle(color: Colors.black)),
-          actions: [
-            IconButton(
-              icon: Icon(Icons.refresh, color: Colors.black),
-              onPressed: () async {
-                await loadProfileData();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Profile refreshed!')),
-                );
-              },
-              tooltip: 'Refresh Profile',
-            ),
-          ],
-          iconTheme: IconThemeData(color: Colors.black),
+    final user = context.watch<UserProvider>();
+    if (!user.isLoggedIn) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('My profile')),
+        body: EmptyState(
+          icon: Icons.person_outline_rounded,
+          title: 'You are not logged in',
+          actionLabel: 'Login',
+          onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PhoneInputPage())),
         ),
-        body: SafeArea(
-          child: Stack(
-            children: [
-              SingleChildScrollView(
-                child: Column(
-                  children: [
-                    _buildHeaderCard(),
-                    _buildSettingsSection(),
-                  ],
-                ),
-              ),
-              // Example Positioned widget with a child (replace with your actual widget if needed)
-              // Positioned(
-              //   top: 20,
-              //   right: 20,
-              //   child: Icon(Icons.account_circle, size: 32, color: Colors.blue),
-              // ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+      );
+    }
 
-  Widget _buildHeaderCard() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 16, right: 16, left: 16),
-      child: Card(
-        elevation: 6,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Stack(
-          clipBehavior: Clip.none,
+    Widget tile(IconData icon, String title, VoidCallback onTap, {Color? color, String? subtitle}) => ListTile(
+          leading: Icon(icon, color: color ?? AppColors.textSecondary),
+          title: Text(title, style: TextStyle(fontWeight: FontWeight.w500, color: color)),
+          subtitle: subtitle == null ? null : Text(subtitle),
+          trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textDisabled),
+          onTap: onTap,
+        );
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('My profile')),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
           children: [
-            Column(
-              children: [
-                Container(
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: Colors.blue,
-                    borderRadius:
-                    BorderRadius.vertical(top: Radius.circular(16)),
-                  ),
-                ),
-                Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius:
-                    BorderRadius.vertical(bottom: Radius.circular(16)),
-                  ),
-                  child: Column(
-                    children: [
-                      SizedBox(height: 60),
-                      Text(userName,
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 18)),
-                      SizedBox(height: 4),
-                      Text("+91 $phone",
-                          style: TextStyle(color: Colors.grey[700])),
-                      SizedBox(height: 12),
-                      Container(
-                        padding:
-                        EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(20),
+            AppCard(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: _uploading ? null : _changePhoto,
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 36,
+                          backgroundColor: AppColors.tealLight,
+                          child: ClipOval(
+                            child: _uploading
+                                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.4))
+                                : user.profileImage.isEmpty
+                                    ? Text(
+                                        user.name.isEmpty ? '?' : user.name[0].toUpperCase(),
+                                        style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.teal),
+                                      )
+                                    : NetImage(user.profileImage, width: 72, height: 72, fallbackIcon: Icons.person),
+                          ),
                         ),
-                        child: Text('OTP: $otp',
-                            style: TextStyle(
-                                color: Colors.black87,
-                                fontWeight: FontWeight.w500)),
-                      ),
-                      SizedBox(height: 16),
-                    ],
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(5),
+                            decoration: BoxDecoration(
+                              color: AppColors.teal,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: const Icon(Icons.camera_alt_rounded, size: 13, color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(user.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                        Text('+91 ${user.phone}', style: const TextStyle(color: AppColors.textSecondary)),
+                        const SizedBox(height: 4),
+                        Text(user.city, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  IconButton(onPressed: _editName, icon: const Icon(Icons.edit_outlined, color: AppColors.teal)),
+                ],
+              ),
             ),
-            Positioned(
-              top: 55,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    CircleAvatar(
-                      radius: 45,
-                      backgroundColor: Colors.white,
-                      backgroundImage:
-                      _avatarImage != null ? FileImage(_avatarImage!) : null,
-                      child: _avatarImage == null
-                          ? Icon(Icons.person, size: 42, color: Colors.grey)
-                          : null,
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: AppColors.navy, borderRadius: BorderRadius.circular(AppRadius.lg)),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('RIDE OTP',
+                            style: TextStyle(color: AppColors.yellow, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                        SizedBox(height: 2),
+                        Text('Riders ask for this before starting a ride or picking up a parcel',
+                            style: TextStyle(color: AppColors.textDisabled, fontSize: 12)),
+                      ],
                     ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: GestureDetector(
-                        onTap: pickImage,
-                        child: CircleAvatar(
-                          radius: 16,
-                          backgroundColor: Colors.blue,
-                          child: Icon(Icons.camera_alt,
-                              size: 14, color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    user.otp.isEmpty ? '----' : user.otp.split('').join(' '),
+                    style: const TextStyle(
+                        color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800, fontFamily: AppTheme.displayFamily),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            AppCard(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Column(
+                children: [
+                  tile(Icons.pedal_bike_rounded, 'Ride history',
+                      () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BookingHistoryScreen()))),
+                  tile(
+                    Icons.inventory_2_outlined,
+                    'Parcel history',
+                    () => Navigator.push(
+                        context, MaterialPageRoute(builder: (_) => const BookingHistoryScreen(initialKind: BookingKind.parcel))),
+                  ),
+                  tile(Icons.receipt_long_outlined, 'Shop orders',
+                      () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OrderHistoryPage()))),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            AppCard(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Column(
+                children: [
+                  tile(Icons.lock_outline_rounded, 'Set password', _setPassword, subtitle: 'Log in without OTP'),
+                  tile(Icons.support_agent_rounded, 'Help & support', _showHelp),
+                  tile(Icons.privacy_tip_outlined, 'Privacy policy', () => openExternal(context, Common.privacyUrl)),
+                  tile(Icons.description_outlined, 'Terms & conditions', () => openExternal(context, Common.termsUrl)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            AppCard(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Column(
+                children: [
+                  tile(Icons.logout_rounded, 'Log out', _logout),
+                  tile(Icons.delete_forever_outlined, 'Delete account', _deleteAccount, color: AppColors.error),
+                ],
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSettingsSection() {
-    final settings = [
-      {
-        'icon': Icons.edit,
-        'label': 'Change Name',
-        'onTap': showChangeNameDialog,
-        'color': Colors.blue,
-      },
-      {
-        'icon': Icons.lock,
-        'label': 'Add Password',
-        'onTap': showAddPasswordDialog,
-        'color': Colors.blue,
-      },
-      {
-        'icon': Icons.logout,
-        'label': 'Logout',
-        'onTap': logout,
-        'color': Colors.blue,
-      },
-    ];
-
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Card(
-        elevation: 6,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            children: [
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.only(left: 16),
-                alignment: AlignmentDirectional.centerStart,
-                child: const Text(
-                  'Settings',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ),
-              ...settings.map((item) => ListTile(
-                leading: Icon(item['icon'] as IconData,
-                    color: item['color'] as Color? ?? Colors.blue),
-                title: Text(
-                  item['label'] as String,
-                  style: TextStyle(
-                      color: Colors.black),
-                ),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: item['onTap'] as void Function()?,
-              )),
-            ],
-          ),
         ),
       ),
     );

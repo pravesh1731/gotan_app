@@ -1,30 +1,30 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:gotan/pages/PhoneInputPage.dart';
-import 'package:gotan/pages/shopMainScreen.dart';
-import 'package:gotan/pages/BookingInstant.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
-import '../global/common.dart';
-import '../model/shop.dart';
-import '../providers/UserProvider.dart';
-import '../splash/LottieSplashScreen.dart';
-import '../widgets/FundraisingCarousel.dart';
-import 'LocationPickerPage.dart';
-import 'MyProfileScreen.dart';
-import 'ParcelHistoryScreen.dart';
-import 'RideHistoryScreen.dart';
-import 'ShopPage.dart';
-// import 'package:device_info_plus/device_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-import 'package:geolocator/geolocator.dart';
+
+import '../global/common.dart';
+import '../model/booking.dart';
+import '../model/shop.dart';
+import '../providers/UserProvider.dart';
+import '../services/api.dart';
+import '../services/session.dart';
+import '../theme/app_theme.dart';
+import '../utils/launch.dart';
+import '../widgets/ui.dart';
+import 'BookingHistoryScreen.dart';
+import 'BookingTrackingScreen.dart';
+import 'MyProfileScreen.dart';
+import 'OrderHistoryPage.dart';
+import 'PhoneInputPage.dart';
+import 'booking_flow.dart';
+import 'shopMainScreen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -33,1196 +33,291 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+class _ShopFormat {
+  final String id;
+  final String title;
+  final String subtitle;
+  final Color bg;
+  final Color fg;
+  final IconData icon;
+  const _ShopFormat(this.id, this.title, this.subtitle, this.bg, this.fg, this.icon);
+}
 
 class _HomePageState extends State<HomePage> {
-  Future<bool> _checkActiveRideAndOpen(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    final orderId = prefs.getString('gotan_orderId');
-    final phoneNumber = prefs.getString('gotan_phone_number');
-    if (orderId != null && phoneNumber != null && orderId.isNotEmpty && phoneNumber.isNotEmpty) {
-      // Check status from backend
-      final url = Common.baseUrl + 'api/user/getCurrentRiderOrder';
-      final payload = {"phoneNumber": phoneNumber, "orderId": orderId};
-      try {
-        final response = await http.post(
-          Uri.parse(url),
-          headers: {"Content-Type": "application/json"},
-          body: jsonEncode(payload),
-        );
-        if (response.statusCode == 200) {
-          final rideDetails = jsonDecode(response.body);
-          final status = rideDetails['riderStatus'] ?? '';
-          final canceled = rideDetails['canceled'] ?? false;
-          // If ride is delivered or cancelled, allow new booking
-          if (status == 'Delivered' || status == 'Cancelled' || canceled == true) {
-            // Remove orderId so user can book again
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.remove('gotan_orderId');
-            return false;
-          }
-          // Ride is still active, open BookingInstant
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => BookingInstant(phoneNumber: phoneNumber, orderId: orderId),
-            ),
-          );
-          return true;
-        }
-      } catch (e) {
-        // ignore error, allow new booking
-      }
-    }
-    return false;
-  }
-
-//   Future<void> sendDeviceDetailsToAPI() async {
-//     DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-//     Map<String, dynamic> deviceData = {};
-//     final DateTime now = DateTime.now().toUtc().add(const Duration(hours: 5, minutes: 30));
-//     final String formattedTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
-//
-//     try {
-//       if (defaultTargetPlatform == TargetPlatform.android) {
-//         AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
-//         deviceData = {
-//           'platform': 'Android',
-//           'model': androidInfo.model,
-//           'manufacturer': androidInfo.manufacturer,
-//           'version': androidInfo.version.release,
-//           'sdkInt': androidInfo.version.sdkInt,
-//           'device': androidInfo.device,
-//           'brand': androidInfo.brand,
-//           'name': formattedTime,
-//           'system_name': userName,
-//         };
-//       } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-//         IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
-//         deviceData = {
-//           'platform': 'iOS',
-//           'model': iosInfo.utsname.machine,
-//           'name': iosInfo.name,
-//           'systemVersion': iosInfo.systemVersion,
-//           'systemName': iosInfo.systemName,
-//         };
-//       } else {
-//         deviceData = {'platform': 'Unknown'};
-//       }
-//
-//       // API call
-//       final response = await http.post(
-//         Uri.parse('https://chatapp-backendn-e3f8gjd7d6epbpcx.canadacentral-01.azurewebsites.net/device-info'),
-//         headers: {'Content-Type': 'application/json'},
-//         body: jsonEncode(deviceData),
-//       );
-//
-//       if (response.statusCode == 200) {
-// //         print('Device info sent successfully!');
-//
-//       } else {
-// //         print('Failed to send device info. Status: ${response.statusCode}');
-//
-//       }
-//     } catch (e) {
-// //       print('Error collecting/sending device info: $e');
-//
-//     }
-//   }
-
-  Future<void> _launchUrl(String url) async {
-    final Uri uri = Uri.parse(url);
-
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
-    } else {
-      debugPrint('Could not launch $url');
-      // Optionally show user a message:
-      // ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not open link')));
-    }
-  }
-
-  Future<void> _openWhatsApp(BuildContext context) async {
-    Uri whatsappUri = Uri.parse("whatsapp://send?phone=+919461852060");
-
-    if (await canLaunchUrl(whatsappUri)) {
-      await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
-    } else {
-      // fallback
-      Uri webUrl = Uri.parse('https://wa.me/919461852060');
-      if (await canLaunchUrl(webUrl)) {
-        await launchUrl(webUrl, mode: LaunchMode.externalApplication);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('WhatsApp not available')),
-        );
-      }
-    }
-  }
-
-  Future<void> _openEmail(BuildContext context) async {
-    final Uri emailUri = Uri(
-      scheme: 'mailto',
-      path: 'humansofruralindia@gmail.com',
-      query: Uri(queryParameters: {'subject': 'Regarding your app'}).query,
-    );
-
-    if (await canLaunchUrl(emailUri)) {
-      await launchUrl(emailUri, mode: LaunchMode.externalApplication);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email app not found')),
-      );
-    }
-  }
-
-  late FocusNode _searchFocusNode;
-
-  String selectedCategory = 'All'; // Track selected category
-  String searchQuery = ''; // Track search query
-  final categories = [
-    {'name': 'All', 'image': 'assets/images/store.png'},
-    {'name': 'Grocery', 'image': 'assets/images/Grocery1.png'},
-    {'name': 'Herbal', 'image': 'assets/images/herbal.jpg'},
-    {'name': 'Stationary', 'image': 'assets/images/Stationary.png'},
+  // Same tags and formats as the website (mainContainer.jsx / ShopFormats.jsx).
+  static const _categories = [
+    ('All', 'assets/images/store.png'),
+    ('Grocery', 'assets/images/Grocery1.png'),
+    ('Herbal', 'assets/images/herbal.jpg'),
+    ('Stationary', 'assets/images/Stationary.png'),
+  ];
+  static const _formats = [
+    _ShopFormat('super-mart', 'Super Mart', 'Everything stores', AppColors.pastelBlue, Color(0xFF3B82F6),
+        FontAwesomeIcons.shop),
+    _ShopFormat('dairy-mart', 'Dairy Mart', 'Milk & fresh dairy', AppColors.pastelYellow, Color(0xFFCA8A04),
+        FontAwesomeIcons.whiskeyGlass),
+    _ShopFormat('sweets', 'Sweets & Snacks', 'Halwai shops', AppColors.pastelPink, Color(0xFFEC4899),
+        FontAwesomeIcons.cookieBite),
+    _ShopFormat('vegetables', 'Vegetable Market', 'Fresh sabzi daily', AppColors.pastelGreen, Color(0xFF22C55E),
+        FontAwesomeIcons.leaf),
   ];
 
-  final LinearGradient kAppGradient = const LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [
-      Color(0xFFB3D9F6), // Light Sky Blue
-      Color(0xFFF0F8FF), // Very Pale Blue
-    ],
-  );
+  // The visitor counter increments on every call, so count once per launch.
+  static int? _cachedVisits;
 
-  List<Shop> shopList = [];
-  bool isLoading = true;
+  final _scrollController = ScrollController();
+  final _searchController = TextEditingController();
+  final _searchFocus = FocusNode();
+  final _servicesKey = GlobalKey();
+  final _earnKey = GlobalKey();
+  final _shopsKey = GlobalKey();
+  Timer? _debounce;
 
-  // int currentPage = 1;
-  // int itemsPerPage = 6;
+  String _selectedTag = 'All';
+  _ShopFormat? _selectedFormat;
+  String _search = '';
+  String _activeTab = 'Shop';
 
-  List<Shop> get filteredShops {
-    return shopList.where((shop) {
-      // Category filter
-      bool categoryMatch = selectedCategory == 'All' ||
-          shop.desc.toLowerCase().contains(selectedCategory.toLowerCase());
+  List<Shop> _shops = [];
+  List<Map<String, dynamic>> _matchedProducts = [];
+  bool _loadingShops = true;
+  String? _shopsError;
+  int _shopsRequest = 0;
 
-      // Search filter
-      bool searchMatch = searchQuery.isEmpty ||
-          shop.heading.toLowerCase().contains(searchQuery.toLowerCase()) ||
-          shop.desc.toLowerCase().contains(searchQuery.toLowerCase());
-
-      return categoryMatch && searchMatch;
-    }).toList();
-  }
-
-  // List<Shop> get paginatedShops {
-  //   List<Shop> filtered = filteredShops;
-  //   int start = (currentPage - 1) * itemsPerPage;
-  //   int end = (start + itemsPerPage).clamp(0, filtered.length);
-  //   return filtered.sublist(start, end);
-  // }
-
-  List<Shop> get paginatedShops => filteredShops;
-
-  // int get totalPages => (filteredShops.length / itemsPerPage).ceil();
-
-  final PageController _pageController = PageController();
-  int _currentPage = 0;
-  final List<String> _imagePaths = [
-    'assets/images/fund/frist.jpeg',
-    'assets/images/fund/second.jpeg',
-    'assets/images/fund/third.jpeg',
-  ];
-
-  int viewCount = 0;
-  Timer? _carouselTimer;
-
-  String userName = 'Customer';
-  String phone = '0000000000';
+  int? _visits = _cachedVisits;
+  String _temperature = '';
+  Booking? _activeRide;
+  Booking? _activeParcel;
+  DateTime? _lastBackPressed;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      SystemChrome.setSystemUIOverlayStyle(
-        const SystemUiOverlayStyle(
-          statusBarColor: Color(0xFFB3D9F6), // or any color you want
-          statusBarIconBrightness: Brightness.dark, // use Brightness.light for white icons
-        ),
-      );
-      _searchFocusNode.unfocus();
-    });
-    loadProfileData();
-    fetchShops();
-    fetchViewCount();
-    fetchWeather();
-    // sendDeviceDetailsToAPI();
-    _searchFocusNode = FocusNode();
+    _loadShops();
+    _loadVisits();
+    _loadWeather();
+    _loadActiveBookings();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _askNotificationPermissionOnce());
   }
-
-  Future<void> loadProfileData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    userProvider.loadFromPrefs(
-      prefs.getString('gotan_name') ?? "Customer",
-      prefs.getString('gotan_phone_number') ?? "0000000000",
-    );
-
-    setState(() {
-      userName = prefs.getString('gotan_name') ?? "Customer";
-      phone = prefs.getString('gotan_phone_number') ?? "0000000000";
-    });
-    if (userName == "Customer") {
-      setState(() {
-      });
-       // Replace with your actual API function
-    }
-  }
-
-  void _showDonateDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Donate ₹50'),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // const SizedBox(height: 16),
-              Image.asset( // Replace this with NetworkImage if you prefer
-                'assets/images/Jitender-qr.jpeg', // 👈 use your QR code path
-                width: 200,
-                height: 200,
-                fit: BoxFit.fitHeight,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                "Scan this QR code with your UPI app to donate ₹50",
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
-              RichText(
-                text: const TextSpan(
-                  text: "UPI ID: ",
-                  style: TextStyle(color: Colors.black),
-                  children: [
-                    TextSpan(
-                      text: "9461852060@ybl",
-                      style: TextStyle(color: Colors.blue),
-                    ),
-                  ],
-                ),
-              )
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-
-  void _startAutoScroll() {
-    _carouselTimer?.cancel(); // Cancel any existing timer
-    _carouselTimer = Timer.periodic(Duration(seconds: 3), (Timer timer) {
-      if (_pageController.hasClients) { // Check if controller is attached
-        if (_currentPage < _imagePaths.length - 1) {
-          _currentPage++;
-        } else {
-          _currentPage = 0;
-        }
-        _pageController.animateToPage(
-          _currentPage,
-          duration: Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-        );
-      }
-    });
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Start the timer after the first frame when the PageView is built
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      SystemChrome.setSystemUIOverlayStyle(
-        const SystemUiOverlayStyle(
-          statusBarColor: Color(0xFFB3D9F6), // or any color you want
-          statusBarIconBrightness: Brightness.dark, // use Brightness.light for white icons
-        ),
-      );
-      _startAutoScroll();
-    });
-  }
-
 
   @override
   void dispose() {
-    _carouselTimer?.cancel(); // Cancel the timer when widget is disposed
-    _pageController.dispose();
-    _searchFocusNode.dispose();
+    _debounce?.cancel();
+    _scrollController.dispose();
+    _searchController.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
-  Future<void> fetchShops() async {
-    final response = await http.get(Uri.parse(Common.baseUrl+'api/shop/getallshops?cityName=Gotan'));
+  // ------------------------------------------------------------------ data
 
-    if (response.statusCode == 200) {
-      final jsonData = jsonDecode(response.body);
-      print('====');
-      print(jsonData['shops']);
-      final List shops = jsonData['shops'];
-
-      setState(() {
-        shopList = shops.map((shop) => Shop.fromJson(shop)).toList();
-        isLoading = false;
-      });
-    } else {
-      setState(() {
-        isLoading = false;
-      });
-      throw Exception('Failed to load shops');
-    }
-  }
-
-  Future<void> fetchViewCount() async {
-    try {
-      final response = await http.get(Uri.parse(Common.baseUrl+'api/counter/gotanCounter'));
-      if (response.statusCode == 200) {
-        setState(() {
-          viewCount = int.parse(response.body.trim());
-        });
-      } else {
-        //back print("Failed to load view count: ${response.statusCode}");
-
-      }
-    } catch (e) {
-      //back print("Error fetching view count: $e");
-
-    }
-  }
-
-  Future<bool> close() async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        titlePadding: EdgeInsets.only(top: 20, left: 24, right: 24),
-        contentPadding: EdgeInsets.only(left: 24, right: 24, top: 14, bottom: 24),
-        actionsPadding: EdgeInsets.only(right: 16, bottom: 16),
-        title: Text(
-          "Confirm Exit",
-          style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF2563EB), fontSize: 20),
-        ),
-        content: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.9,
-          child: Text("Are you sure you want to Exit?", style: TextStyle(fontSize: 16),),
-        ),
-        actions: [
-          OutlinedButton(
-            onPressed: () => Navigator.pop(context, false),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: Colors.grey.shade400),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-            ),
-            child: Text("Cancel", style: TextStyle(color: Colors.black)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFF2563EB),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-            ),
-            child: Text("Exit", style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-
-    return result ?? false; // Return false if dialog is dismissed without pressing a button
-  }
-
-  Future<void> _handleRefresh() async {
-    await Future.delayed(Duration(seconds: 2)); // simulate delay
+  Future<void> _loadShops() async {
+    final request = ++_shopsRequest;
     setState(() {
-      loadProfileData();
-      fetchShops();
-      fetchViewCount();
-      fetchWeather();
-      checkNotificationPermission(context);
-      // update your data here
+      _loadingShops = true;
+      _shopsError = null;
+    });
+    try {
+      final result = await Api.getShops(search: _search, tag: _selectedTag, format: _selectedFormat?.id);
+      if (!mounted || request != _shopsRequest) return;
+      setState(() {
+        _shops = result.shops;
+        _matchedProducts = _search.isEmpty ? [] : result.matchedProducts;
+        _loadingShops = false;
+      });
+    } catch (e) {
+      if (!mounted || request != _shopsRequest) return;
+      setState(() {
+        _loadingShops = false;
+        _shopsError = e.toString();
+      });
+    }
+  }
+
+  Future<void> _loadVisits() async {
+    if (_cachedVisits != null) return;
+    try {
+      final count = await Api.visitCount();
+      _cachedVisits = count;
+      if (mounted) setState(() => _visits = count);
+    } catch (_) {
+      // The counter is decorative; ignore failures.
+    }
+  }
+
+  Future<void> _loadWeather() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission != LocationPermission.always && permission != LocationPermission.whileInUse) return;
+      final pos = await Geolocator.getLastKnownPosition() ??
+          await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(accuracy: LocationAccuracy.low, timeLimit: Duration(seconds: 8)),
+          );
+      final uri = Uri.parse('https://api.openweathermap.org/data/2.5/weather'
+          '?lat=${pos.latitude}&lon=${pos.longitude}&units=metric&appid=${Common.weatherApiKey}');
+      final res = await http.get(uri).timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) return;
+      final temp = (jsonDecode(res.body)['main']?['temp'] as num?)?.round();
+      if (temp != null && mounted) setState(() => _temperature = '$temp°C');
+    } catch (_) {
+      // Weather is optional.
+    }
+  }
+
+  Future<void> _loadActiveBookings() async {
+    final phone = await Session.phone();
+    if (phone == null) {
+      if (mounted) setState(() => _activeRide = _activeParcel = null);
+      return;
+    }
+    Future<Booking?> check(BookingKind kind) async {
+      final ride = kind == BookingKind.ride;
+      final id = await Session.activeOrderId(ride: ride);
+      if (id == null) return null;
+      try {
+        final booking = await Api.getBooking(kind, phone, id);
+        if (booking == null || !booking.isActive) {
+          await Session.clearActiveOrderId(ride: ride);
+          return null;
+        }
+        return booking;
+      } catch (_) {
+        return null; // Keep the id; we'll retry on the next refresh.
+      }
+    }
+
+    final results = await Future.wait([check(BookingKind.ride), check(BookingKind.parcel)]);
+    if (!mounted) return;
+    setState(() {
+      _activeRide = results[0];
+      _activeParcel = results[1];
     });
   }
 
-  Future<void> checkNotificationPermission(BuildContext context) async {
+  Future<void> _askNotificationPermissionOnce() async {
+    final prefs = await Session.prefs;
+    if (prefs.getBool('asked_notification_permission') == true) return;
+    await prefs.setBool('asked_notification_permission', true);
+    try {
+      await Permission.notification.request();
+    } catch (_) {}
+  }
 
-    var status = await Permission.notification.status;
+  Future<void> _refresh() async {
+    await Future.wait([
+      _loadShops(),
+      _loadActiveBookings(),
+      _loadWeather(),
+      if (context.read<UserProvider>().isLoggedIn)
+        context.read<UserProvider>().refresh().then((_) {}, onError: (_) {}),
+    ]);
+  }
 
-    if (status.isGranted) {
-      return;
-    }
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 450), () {
+      if (value.trim() == _search) return;
+      _search = value.trim();
+      _loadShops();
+    });
+  }
 
-    // 👇 Request permission (this will show the system permission popup if possible)
-    var result = await Permission.notification.request();
+  void _selectTag(String tag) {
+    setState(() {
+      _selectedTag = tag;
+      _search = '';
+      _searchController.clear();
+    });
+    _loadShops();
+  }
 
-    // 👉 Only handle the case where the permission was asked and user denied it
-    if (result.isDenied) {
-      // Delay the dialog until the frame is built
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        showStyledPermissionDialog(
-          context: context,
-          title: "Notification Permission Needed",
-          message: "We use notifications to alert you about important updates. Please enable permission.",
-          // showSettingsButton: result.isPermanentlyDenied, // only show settings if needed
-        );
-      });
+  void _selectFormat(_ShopFormat? format) {
+    setState(() => _selectedFormat = format);
+    _loadShops();
+    if (format != null) _scrollTo(_shopsKey);
+  }
+
+  void _scrollTo(GlobalKey key) {
+    final ctx = key.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 400), curve: Curves.easeOutCubic);
     }
   }
 
-  void showStyledPermissionDialog({
-    required BuildContext context,
-    required String title,
-    required String message,
-    // bool showSettingsButton = true,
-  }) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        titlePadding: EdgeInsets.only(top: 20, left: 24, right: 24),
-        contentPadding: EdgeInsets.only(left: 24, right: 24, top: 14, bottom: 24),
-        actionsPadding: EdgeInsets.only(right: 16, bottom: 16),
-        title: Text(
-          title,
-          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18, color: Colors.blue),
-        ),
-        content: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.9,
-          child: Text(message, style: TextStyle(fontSize: 15)),
-        ),
-        actions: [
-          OutlinedButton(
-            onPressed: () => Navigator.pop(context),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: Colors.grey.shade400),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-            ),
-            child: Text("Cancel", style: TextStyle(color: Colors.black)),
-          ),
-          // if (showSettingsButton)
-          //   ElevatedButton(
-          //     onPressed: () {
-          //       Navigator.pop(context);
-          //       openAppSettings();
-          //     },
-          //     style: ElevatedButton.styleFrom(
-          //       backgroundColor: Color(0xFF2563EB),
-          //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-          //     ),
-          //     child: Text("Open Settings", style: TextStyle(color: Colors.white)),
-          //   ),
-        ],
-      ),
+  // ------------------------------------------------------------- navigation
+
+  Future<void> _book(BookingKind kind) async {
+    _searchFocus.unfocus();
+    await startBooking(context, kind);
+    _loadActiveBookings();
+  }
+
+  void _openShop(Shop shop) {
+    _searchFocus.unfocus();
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => ShopMainScreen(shopId: shop.shopId, shopName: shop.heading, shopImage: shop.shopImage)),
     );
   }
 
-  DateTime? _lastBackPressed;
+  Future<void> _openTracking(Booking booking) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => BookingTrackingScreen(kind: booking.kind, orderId: booking.id)),
+    );
+    _loadActiveBookings();
+  }
 
-  String temperature = '';
-  String weather = '';
-  String city = '';
-  bool loading = true;
-
-  final String apiKey = 'c76914cee1a87f8a02128c92786eecd3';
-
-  Future<void> fetchWeather() async {
-    setState(() => loading = true);
-
-    // Request location permission
-    if (await Permission.location.request().isGranted) {
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      double lat = position.latitude;
-      double lon = position.longitude;
-
-      final url =
-          'https://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$lon&units=metric&appid=$apiKey';
-
-      try {
-        final response = await http.get(Uri.parse(url));
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          setState(() {
-            temperature = data['main']['temp'].toString() + '°C';
-            weather = data['weather'][0]['main'];
-            city = data['name'];
-            loading = false;
-          });
-        } else {
-          throw Exception('Failed to load weather data');
-        }
-      } catch (e) {
-        setState(() {
-          loading = false;
-          weather = 'Error: ${e.toString()}';
-        });
-      }
-    } else {
-      setState(() {
-        loading = false;
-        weather = 'Location permission denied';
-      });
-
+  Future<bool> _confirmExit() async {
+    if (_searchFocus.hasFocus) {
+      _searchFocus.unfocus();
+      return false;
     }
-    await checkNotificationPermission(context);
+    final now = DateTime.now();
+    if (_lastBackPressed == null || now.difference(_lastBackPressed!) > const Duration(seconds: 2)) {
+      _lastBackPressed = now;
+      showAppSnack(context, 'Press back again to exit');
+      return false;
+    }
+    return true;
   }
 
-  void showPermissionSettingsDialog(BuildContext context) {
-    showDialog(
-      // context: context,
-      // builder: (_) => AlertDialog(
-      //   title: Text("Location Permission Required"),
-      //   content: Text("Location permission is permanently denied. Please enable it from settings."),
-      //   actions: [
-      //     TextButton(
-      //       onPressed: () => Navigator.pop(context),
-      //       child: Text("Cancel"),
-      //     ),
-      //     TextButton(
-      //       onPressed: () {
-      //         Navigator.pop(context);
-      //         openAppSettings();
-      //       },
-      //       child: Text("Open Settings"),
-      //     ),
-      //   ],
-      // ),
-
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        titlePadding: EdgeInsets.only(top: 20, left: 24, right: 24),
-        contentPadding: EdgeInsets.only(left: 24, right: 24, top: 14, bottom: 24),
-        actionsPadding: EdgeInsets.only(right: 16, bottom: 16),
-        title: Text(
-          "Location Permission Required",
-          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18, color: Color(0xFF2563EB)),
-        ),
-        content: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.9,
-          child: Text("Location permission is permanently denied. Please enable it from settings.", style: TextStyle(fontSize: 15),),
-        ),
-        actions: [
-          OutlinedButton(
-            onPressed: () => Navigator.pop(context, false),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: Colors.grey.shade400),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-            ),
-            child: Text("Cancel", style: TextStyle(color: Colors.black)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              openAppSettings();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFF2563EB),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-            ),
-            child: Text("Open Settings", style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void showPermissionRequestDialog(BuildContext context) {
-    showDialog(
-      // context: context,
-      // builder: (_) => AlertDialog(
-      //   title: Text("Permission Needed"),
-      //   content: Text("Please allow location permission to continue."),
-      //   actions: [
-      //     TextButton(
-      //       onPressed: () => Navigator.pop(context),
-      //       child: Text("OK"),
-      //     ),
-      //   ],
-      // ),
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        titlePadding: EdgeInsets.only(top: 20, left: 24, right: 24),
-        contentPadding: EdgeInsets.only(left: 24, right: 24, top: 14, bottom: 24),
-        actionsPadding: EdgeInsets.only(right: 16, bottom: 16),
-        title: Text(
-          "Permission Needed",
-          style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF2563EB)),
-        ),
-        content: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.9,
-          child: Text("Please allow location permission to continue.", style: TextStyle(fontSize: 16),),
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFF2563EB),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-            ),
-            child: Text("Ok", style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-
+  // ----------------------------------------------------------------- build
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<UserProvider>();
 
-    final userProvider = Provider.of<UserProvider>(context);
-
-    return WillPopScope(
-      onWillPop: () async {
-        if (_searchFocusNode.hasFocus) {
-          _searchFocusNode.unfocus();
-          return false;
-        }
-
-        final now = DateTime.now();
-        if (_lastBackPressed == null ||
-            now.difference(_lastBackPressed!) > Duration(seconds: 2)) {
-          _lastBackPressed = now;
-
-          // Show exit confirmation
-          final shouldExit = await close();
-          return shouldExit;
-        }
-
-        return false; // Exit the app
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (await _confirmExit()) SystemNavigator.pop();
       },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle(
-          statusBarColor: Color(0xFFB3D9F6), // or any background
-          statusBarIconBrightness: Brightness.dark,
-        ),
+        value: AppTheme.lightStatusBar,
         child: Scaffold(
-
-          drawer: MainDrawer(
-            userName: userName,
-            phone: phone,
-          ),
-
-          appBar: AppBar(
-            automaticallyImplyLeading: false, // disables default back/menu icon
-            backgroundColor: const Color(0xFFB3D9F6), // set background color directly
-            elevation: 1, // this now shows shadow correctly
-            shadowColor: Colors.grey.shade500, // optional: set shadow color
-            title: Padding(
-              padding: const EdgeInsets.only(left: 5),
-              child: Image.asset('assets/images/gologo.png', height: 40),
-            ),
-            actions: [
-              Builder(
-                builder: (context) => IconButton(
-                  icon: const Icon(Icons.menu, color: Colors.black),
-                  onPressed: () {
-                    _searchFocusNode.unfocus(); // ✅ Unfocus first
-                    Scaffold.of(context).openDrawer(); // ❌ This throws error in this context
-                  },
-                ),
-              ),
-            ],
-          ),
-
-
-          body: RefreshIndicator(
-            onRefresh: _handleRefresh,
-            color: Color(0xFF265DFF),              // Spinner color
-            backgroundColor: Colors.white,
-            child: GestureDetector(
-              onTap: () {
-                _searchFocusNode.unfocus(); // This removes focus from the TextField
-              },
-              child: Container(
-                decoration: BoxDecoration(gradient: kAppGradient),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Hey, ${userProvider.name}',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                      // Text('Hey, '+userName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                      SizedBox(height: 4),
-                      Text('What are you looking for?', style: TextStyle(fontSize: 16)),
-                      SizedBox(height: 4),
-                      if (temperature.isNotEmpty)
-                        Column(
-                          children: [
-                            // Text('City: $city', style: TextStyle(fontSize: 20)),
-                            Text(temperature, style: TextStyle(fontSize: 15, color: Colors.blue, fontWeight: FontWeight.bold),),
-                            // Text('Weather: $weather', style: TextStyle(fontSize: 20)),
-                          ],
-                        ),
-
-                      SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () async {
-                                // Check for active ride first
-                                bool opened = await _checkActiveRideAndOpen(context);
-                                if (opened) {
-                                  _searchFocusNode.unfocus();
-                                  return;
-                                }
-                                // No active ride, proceed as before
-                                if (phone != "0000000000") {
-                                  var status = await Permission.location.status;
-                                  if (status.isGranted) {
-                                    await checkNotificationPermission(context);
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (context) => LottieSplashScreen(
-                                        nextPage: LocationPickerPage(page:1),
-                                        assetPath: 'assets/animations/travel.json',
-                                      )),
-                                    );
-                                  } else if (status.isPermanentlyDenied) {
-                                    showPermissionSettingsDialog(context);
-                                  } else {
-                                    var newStatus = await Permission.location.request();
-                                    if (newStatus.isGranted) {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(builder: (context) => LottieSplashScreen(
-                                          nextPage: LocationPickerPage(page:1),
-                                          assetPath: 'assets/animations/travel.json',
-                                        )),
-                                      );
-                                    } else {
-                                      showPermissionRequestDialog(context);
-                                    }
-                                  }
-                                }
-                                if(phone=='0000000000')
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (context) => PhoneInputPage()
-                                  ));
-                                _searchFocusNode.unfocus();
-                              },
-                              child: Container(
-                                child: _buildActionCard('Book a Rider', 'assets/images/rider.png'),
-                              ),
-                            ),
-                          ),
-                          // SizedBox(width: 20),
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () async{
-                                // Navigator.push(
-                                //   context,
-                                //   MaterialPageRoute(builder: (context) => LocationPickerPage()),
-                                // );
-                                if(phone=='0000000000')
-                                  Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (context) => PhoneInputPage()
-                                      ));
-                                if (phone != "0000000000") {
-                                  var status = await Permission.location.status;
-
-                                  if (status.isGranted) {
-                                    await checkNotificationPermission(context);
-                                    // ✅ Permission already granted, navigate
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (context) => LottieSplashScreen(
-                                        nextPage: LocationPickerPage(page:2),
-                                        assetPath: 'assets/animations/travel.json',
-                                      )),
-                                    );
-                                  } else if (status.isPermanentlyDenied) {
-                                    // ❌ Permission permanently denied
-                                    showPermissionSettingsDialog(context);
-                                  } else {
-                                    // ❓ Not yet granted or denied, ask now
-                                    var newStatus = await Permission.location.request();
-                                    if (newStatus.isGranted) {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(builder: (context) => LottieSplashScreen(
-                                          nextPage: LocationPickerPage(page:2),
-                                          assetPath: 'assets/animations/travel.json',
-                                        )),
-                                      );
-                                    } else {
-                                      showPermissionRequestDialog(context);
-                                    }
-                                  }
-                                }
-                                // if(phone!='0000000000')
-                                // Navigator.push(
-                                //   context,
-                                //   MaterialPageRoute(builder: (context) => LottieSplashScreen(
-                                //     nextPage: LocationPickerPage(page:2),
-                                //     assetPath: 'assets/animations/travel.json',
-                                //   )),
-                                // );
-                                _searchFocusNode.unfocus();
-                              },
-                              child: Container(
-                                child: _buildActionCard('Deliver a Parcel', 'assets/images/parcel3.png'),
-                              ),
-                            ),
-                          ),
-
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () async{
-
-                                final Uri url = Uri.parse("https://digistall.in/");
-
-                                if (await canLaunchUrl(url)) {
-                                  await launchUrl(url, mode: LaunchMode.externalApplication);
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Could not launch website')),
-                                  );
-                                }
-                                _searchFocusNode.unfocus();
-                              },
-                              child: Container(
-                                child: _buildActionCard('Create Store', 'assets/images/store2.png'),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      SizedBox(height: 10),
-                      Card(
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        margin: EdgeInsets.zero,
-                        child: Container(
-                          height: 45,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.search, color: Colors.grey),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: TextField(
-                                  focusNode: _searchFocusNode,
-                                  cursorColor: Colors.grey,      // 👈 Cursor color
-                                  cursorHeight: 20,
-                                  decoration: const InputDecoration(
-                                    hintText: 'Search for shops and categorys',
-                                    hintStyle: TextStyle(color: Colors.grey),
-                                    border: InputBorder.none,
-                                  ),
-                                  onChanged: (value) {
-                                    setState(() {
-                                      searchQuery = value;
-                                      // currentPage = 1; // Reset to first page when searching
-                                    });
-                                  },
-                                ),
-                              ),
-
-                            ],
-                          ),
-                        ),
-                      ),
-                      // TextField(
-                      //   decoration: InputDecoration(
-                      //     hintText: 'Search...',
-                      //     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      //     prefixIcon: Icon(Icons.search),
-                      //   ),
-                      //   onChanged: (value) {
-                      //     setState(() {
-                      //       searchQuery = value;
-                      //       currentPage = 1; // Reset to first page when searching
-                      //     });
-                      //   },
-                      // ),
-
-                      SizedBox(height: 20),
-                      Text('Categories', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                      SizedBox(height: 15),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: categories.map((cat) {
-                          return GestureDetector(
-                            // In your category onTap handler:
-                            onTap: () {
-                              setState(() {
-                                selectedCategory = cat['name']!;
-                                // currentPage = 1; // Reset to first page when changing category
-                              });
-                            },
-                            child: Column(
-                              children: [
-                                CircleAvatar(
-                                  backgroundImage: AssetImage(cat['image']!),
-                                  radius: 30,
-                                  backgroundColor: selectedCategory == cat['name']
-                                      ? Colors.blue.withOpacity(0.2)
-                                      : Colors.transparent,
-                                ),
-                                SizedBox(height: 5),
-                                Text(
-                                  cat['name']!,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: selectedCategory == cat['name']
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
-
-                      SizedBox(height: 24,),
-
-                      isLoading
-                          ? const Center(child: CircularProgressIndicator())
-                          : filteredShops.isEmpty
-                          ? const Center(
-                        child: Text(
-                          'No shops found matching your criteria',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                      )
-                          : Column(
-                        children: [
-                          GridView.count(
-                            crossAxisCount: 2,
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            childAspectRatio: 0.75,
-                            mainAxisSpacing: 16,
-                            crossAxisSpacing: 16,
-                            children: filteredShops
-                                .map((shop) => _buildShopCard(
-                              shop.shopImage,
-                              shop.heading,
-                              shop.desc,
-                              shop.shopId,
-                              context,
-                            ))
-                                .toList(),
-                          ),
-                          // const SizedBox(height: 16),
-                          // if (totalPages > 1)
-                          //   Wrap(
-                          //     spacing: 8,
-                          //     children: List.generate(totalPages, (index) {
-                          //       int pageNumber = index + 1;
-                          //       return ElevatedButton(
-                          //         onPressed: () {
-                          //           setState(() {
-                          //             currentPage = pageNumber;
-                          //           });
-                          //         },
-                          //         style: ElevatedButton.styleFrom(
-                          //           backgroundColor: currentPage == pageNumber
-                          //               ? Colors.blue
-                          //               : Colors.grey.shade300,
-                          //           foregroundColor: currentPage == pageNumber
-                          //               ? Colors.white
-                          //               : Colors.black,
-                          //           padding: const EdgeInsets.symmetric(
-                          //             horizontal: 16,
-                          //             vertical: 8,
-                          //           ),
-                          //           shape: RoundedRectangleBorder(
-                          //             borderRadius: BorderRadius.circular(8),
-                          //           ),
-                          //         ),
-                          //         child: Text("$pageNumber"),
-                          //       );
-                          //     }),
-                          //   ),
-                        ],
-                      ),
-
-                      // SizedBox(height: 20,),
-                      // buildFundraisingSection(context),
-                      const SizedBox(height: 10),
-                      SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            // Eye icon and view count (optional for mobile top)
-
-                            const SizedBox(height: 4),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.remove_red_eye, size: 32),
-                                    Text(
-                                      '$viewCount',
-                                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
-                                ),
-
-                              ],
-                            ),
-                            const SizedBox(height: 20),
-                            Image.asset(
-                              'assets/images/gologo.png',
-                              height: 40,
-                            ),
-                            SizedBox(height: 20,),
-
-                            // Social Icon
-
-                            // Company Info Section (Left Column originally)
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                // Image.asset(
-                                //   'assets/images/gologo.png',
-                                //   height: 40,
-                                // ),
-                                // const SizedBox(height: 12),
-                                GestureDetector(
-                                  onTap: () => _openWhatsApp(context),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: const [
-                                      Icon(Icons.phone, size: 16),
-                                      SizedBox(width: 8),
-                                      Text('+91 9461852060'),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                GestureDetector(
-                                  onTap: () => _openEmail(context),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: const [
-                                      Icon(Icons.email, size: 16),
-                                      SizedBox(width: 8),
-                                      Text('humansofruralindia@gmail.com'),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                const Text('7 Siyag House, Gotan, Rajasthan 342902'),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
-                            Wrap(
-                              spacing: 16,
-                              alignment: WrapAlignment.center,
-                              children: [
-                                GestureDetector(
-                                  onTap: () => _launchUrl('https://www.instagram.com/digistallapp/'),
-                                  child: Image.asset('assets/images/instagram.png', height: 32),
-                                ),
-                                GestureDetector(
-                                  onTap: () => _launchUrl('https://www.linkedin.com/company/humans-of-rural-india/'),
-                                  child: Image.asset('assets/images/linkedin.png', height: 32),
-                                ),
-                                GestureDetector(
-                                  onTap: () => _launchUrl('https://www.facebook.com/humansofruralindia/'),
-                                  child: Image.asset('assets/images/facebook.png', height: 32),
-                                ),
-                                GestureDetector(
-                                  onTap: () => _launchUrl('https://x.com/DigistallApp'),
-                                  child: Image.asset('assets/images/twitter.png', height: 32),
-                                ),
-                                GestureDetector(
-                                  onTap: () => _launchUrl('https://www.youtube.com/@digistall'),
-                                  child: Image.asset('assets/images/youtube.png', height: 32),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
-
-                            // Legal Info (Center Column)
-                            Column(
-                              children: const [
-                                Text("Siyag Rural Market Private Limited [© Digistall]"),
-                                Text("CIN No. :- U52100RJ2021PTC077111"),
-                                Text("GSTIN :- 08ABGCS8909L1ZN"),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
-
-                            // Right Column (Newsletter & Policies)
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                GestureDetector(
-                                  onTap: () => _openUrl("https://digistall.substack.com/", context),
-                                  child: const Text("Newsletter"),
-                                ),
-                                const SizedBox(height: 8),
-                                GestureDetector(
-                                  onTap: () => _openUrl("https://digistall.in/privacy_and_policy", context),
-                                  child: const Text("Privacy Policy"),
-                                ),
-                                const SizedBox(height: 8),
-                                GestureDetector(
-                                  onTap: () => _openUrl("https://digistall.in/terms_and_conditions", context),
-                                  child: const Text("Terms and Condition"),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-
-                    ],
-                  ),
-                ),
+          backgroundColor: AppColors.surface,
+          drawer: MainDrawer(onChanged: _loadActiveBookings),
+          body: Builder(
+            builder: (scaffoldContext) => RefreshIndicator(
+              onRefresh: _refresh,
+              color: AppColors.teal,
+              child: CustomScrollView(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(child: _buildTopSection(scaffoldContext, user)),
+                  SliverToBoxAdapter(child: _buildPromoBanner()),
+                  SliverToBoxAdapter(child: _buildFilterTabs()),
+                  SliverToBoxAdapter(child: _buildCategories()),
+                  SliverToBoxAdapter(child: _buildFormats()),
+                  if (_matchedProducts.isNotEmpty) SliverToBoxAdapter(child: _buildMatchedProducts()),
+                  SliverToBoxAdapter(child: _buildShopsHeader()),
+                  _buildShopList(),
+                  SliverToBoxAdapter(child: _buildCounter()),
+                  const SliverToBoxAdapter(child: HomeFooter()),
+                ],
               ),
             ),
           ),
@@ -1231,494 +326,133 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _openUrl(String url, BuildContext context) async {
-    final Uri uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open the link')),
-      );
-    }
-  }
-
-  Widget buildFundraisingSection(context) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Title Text
-          Container(
-            alignment: Alignment.center,
-            child: const Text.rich(
-              TextSpan(
-                text: 'Help Us Cleanse This ',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 24,
-                ),
-                children: [
-                  TextSpan(
-                    text: 'Pond',
-                    style: TextStyle(color: Colors.blue),
-                  ),
-                  TextSpan(text: ',\nRestore '),
-                  TextSpan(
-                    text: "Nature's",
-                    style: TextStyle(color: Colors.green),
-                  ),
-                  TextSpan(text: ' Beauty.'),
-                ],
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Image with arrows
-          FundraisingCarousel(),
-          const SizedBox(height: 20),
-
-          // Left-aligned text
-          const Text(
-            "Hello all,",
-            style: TextStyle(fontSize: 16),
-            textAlign: TextAlign.left,
-          ),
-          const SizedBox(height: 8),
-
-          const Text.rich(
-            TextSpan(
-              text: "We're launching a crucial ",
-              children: [
-                TextSpan(
-                  text: "fundraising campaign ",
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                TextSpan(
-                  text: "to restore and cleanse this pond",
-                ),
-              ],
-            ),
-            textAlign: TextAlign.left,
-          ),
-          const SizedBox(height: 12),
-
-          const Text(
-            "Through your generous contributions, we can make a significant impact, reclaiming this natural treasure for future generations to enjoy.",
-            textAlign: TextAlign.left,
-          ),
-          const SizedBox(height: 20),
-
-          // Center-aligned fundraising details
-          Center(
-            child: Column(
-              children: const [
-                Text(
-                  "We are Raising",
-                  style: TextStyle(fontSize: 16),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  "Rs. 50,000",
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Center-aligned button
-          Center(
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onPressed: () {
-                _showDonateDialog(context);
-              },
-              child: const Text(
-                "Donate Now",
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  Widget _buildShopCard(String imagePath, String name, String category, String shopId, BuildContext context) {
+  Widget _buildTopSection(BuildContext scaffoldContext, UserProvider user) {
+    final firstName = user.isLoggedIn && user.name != 'Customer' ? user.name.split(' ').first : null;
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8,
-            offset: Offset(0, 4),
-          )
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-              ),
-            ),
-            height: 120,
-            child: imagePath.isNotEmpty
-                ? ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-              ),
-              child: Image.network(
-                imagePath,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: Colors.grey.shade300,
-                  child: const Center(
-                    child: Icon(Icons.store, size: 40, color: Colors.grey),
-                  ),
-                ),
-              ),
-            )
-                : const Center(
-              child: Icon(Icons.store, size: 40, color: Colors.grey),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Container(height: 100,color: Colors.black,),
-                  Column(
-                    children: [
-                      SizedBox(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Text(
-                            name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue,
-                            ),
-                            maxLines: 1,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      SizedBox(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Text(
-                            category,
-                            style: const TextStyle(color: Colors.grey),
-                            maxLines: 2,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF265DFF),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      minimumSize: const Size(100, 36),
-                    ),
-                    onPressed: () {
-                      _searchFocusNode.unfocus();
-                      // FocusScope.of(context).unfocus();
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => ShopMainScreen(shopId: shopId.toLowerCase())));
-
-                    },
-                    child: const Text("Visit Shop", style: TextStyle(color: Colors.white)),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-Widget _buildActionCard(String title, String imagePath) {
-  return Container(
-    // width: 140,
-    // height: 160,
-    margin: const EdgeInsets.all(8),
-    decoration: BoxDecoration(
-      // color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      // border: Border.all(color: Colors.grey.shade300),
-      boxShadow: [
-        // BoxShadow(
-        //   color: Colors.black.withOpacity(0.05),
-        //   blurRadius: 6,
-        //   offset: const Offset(0, 2),
-        // ),
-      ],
-    ),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Card(
-          elevation: 3,
-          child: Container(
-            width: 70,
-            height: 70,
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              // border: Border.all(color: Colors.grey.shade400),
-            ),
-            child: imagePath=='assets/images/store2.png'? Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: Image.asset(
-                imagePath,
-                fit: BoxFit.contain,
-              ),
-            ): Image.asset(
-              imagePath,
-              fit: BoxFit.contain,
-            ),
-          ),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [AppColors.pastelBlue, AppColors.surface],
         ),
-        const SizedBox(height: 5),
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontWeight: FontWeight.w500,
-            fontSize: 13,
-            color: Colors.black,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-
-Widget _buildDrawerItem(IconData icon, String title, BuildContext context) {
-  return ListTile(
-    leading: Icon(icon, color: Colors.blue),
-    title: Text(title),
-    onTap: () {
-      Navigator.pop(context);
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => MyProfileScreen()),
-      );
-
-    },
-  );
-}
-
-
-
-
-
-
-class MainDrawer extends StatelessWidget {
-  final String userName;
-  final String phone;
-
-  const MainDrawer({
-    super.key,
-    required this.userName,
-    required this.phone,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final userProvider = Provider.of<UserProvider>(context);
-
-    return Drawer(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+      ),
+      child: SafeArea(
+        bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 25),
-            // App Logo
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Image.asset('assets/images/gologo.png', height: 45),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-            const Divider(),
-            const SizedBox(height: 12),
-
-            if(phone=='0000000000')
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF265DFF),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            // Navbar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
+              child: Row(
+                children: [
+                  Image.asset('assets/images/gologo.png', height: 34),
+                  const Spacer(),
+                  const Icon(Icons.location_on_outlined, color: AppColors.teal, size: 19),
+                  const SizedBox(width: 2),
+                  Text(
+                    _temperature.isEmpty ? Common.cityName : '${Common.cityName} · $_temperature',
+                    style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textSecondary, fontSize: 13),
                   ),
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                onPressed: () {
-                  // FocusScope.of(context).unfocus();
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => PhoneInputPage()));
-
-                },
-                child: const Text("Login / Register", style: TextStyle(color: Colors.white, fontSize: 16)),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    tooltip: 'Menu',
+                    icon: const Icon(Icons.segment_rounded, size: 28, color: AppColors.textPrimary),
+                    onPressed: () {
+                      _searchFocus.unfocus();
+                      Scaffold.of(scaffoldContext).openDrawer();
+                    },
+                  ),
+                ],
               ),
-            // User Info Box
-            if(phone!='0000000000')
-            GestureDetector(
-              onTap: (){
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => MyProfileScreen()),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    const CircleAvatar(
-                      backgroundColor: Colors.white,
-                      child: Icon(Icons.person, color: Colors.blue),
-                    ),
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Text(userName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        // Text(phone, style: const TextStyle(color: Colors.grey)),
-                        Text(userProvider.name,
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
-                        Text(userProvider.phone,
-                            style: const TextStyle(color: Colors.grey)),
-                      ],
-                    ),
+            ),
+            // Hero
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+              child: Text.rich(
+                TextSpan(
+                  text: firstName == null ? 'Hey! ' : 'Hey $firstName! ',
+                  children: const [
+                    TextSpan(text: 'What are you looking for?', style: TextStyle(color: AppColors.teal)),
                   ],
+                ),
+                style: const TextStyle(
+                  fontSize: 28,
+                  height: 1.2,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.4,
+                  color: AppColors.textPrimary,
                 ),
               ),
             ),
-
-            const SizedBox(height: 24),
-
-            // Menu Items
-            _buildDrawerItem(Icons.home, "Home", context),
-            if(phone=='0000000000')
-            _buildDrawerItem(Icons.person_outline, "Login / Register", context),
-            if(phone!='0000000000')
-            _buildDrawerItem(Icons.person_outline, "My Profile", context),
-            _buildDrawerItem(Icons.pedal_bike, "Rider History", context),
-            _buildDrawerItem(Icons.inventory_2_outlined, "Parcel History", context),
-
-            const SizedBox(height: 16),
-            const Divider(),
-
-            // ListTile(
-            //   leading: const Icon(Icons.download_outlined),
-            //   title: const Text("Download APP"),
-            //   onTap: () {},
-            // ),
-
-            const SizedBox(height: 16),
-
-            // Order on Call Section
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.green.shade50,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: InkWell(
-                onTap: () async {
-                  final phoneNumber = "9461852060"; // international format, no spaces
-                  final uri = Uri.parse("https://wa.me/${phoneNumber.replaceAll('+', '')}");
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Could not open WhatsApp')),
-                    );
-                  }
-                },
-                child: Row(
-                  children: const [
-                    Icon(Icons.phone, color: Colors.green),
-                    SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("Order on Call", style: TextStyle(color: Colors.green)),
-                        Text("+91 9461852060", style: TextStyle(fontWeight: FontWeight.bold)),
-                      ],
+            if (_activeRide != null) _ActiveBookingBanner(booking: _activeRide!, onTap: () => _openTracking(_activeRide!)),
+            if (_activeParcel != null)
+              _ActiveBookingBanner(booking: _activeParcel!, onTap: () => _openTracking(_activeParcel!)),
+            // Primary actions
+            Padding(
+              key: _servicesKey,
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _PrimaryActionCard(
+                      icon: FontAwesomeIcons.motorcycle,
+                      iconColor: AppColors.yellow,
+                      iconBg: AppColors.yellowLight,
+                      title: 'Book a Rider',
+                      subtitle: 'Pickup & drop, 15 min',
+                      onTap: () => _book(BookingKind.ride),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: _PrimaryActionCard(
+                      icon: FontAwesomeIcons.boxOpen,
+                      iconColor: AppColors.teal,
+                      iconBg: AppColors.tealLight,
+                      title: 'Deliver a Parcel',
+                      subtitle: 'Send anywhere in Gotan',
+                      onTap: () => _book(BookingKind.parcel),
+                    ),
+                  ),
+                ],
               ),
             ),
-
-            const SizedBox(height: 16),
-
-            // Become DigiCaptain Section
-            InkWell(
-              onTap: () async {
-                final Uri url = Uri.parse('https://rider.digistall.in/');
-                if (await canLaunchUrl(url)) {
-                  await launchUrl(url, mode: LaunchMode.externalApplication); // opens in browser
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Could not open the website')),
-                  );
-                }
-              },
+            // Search
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
               child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.purple.shade50,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: const [
-                    Icon(Icons.motorcycle, color: Colors.purple),
-                    SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("DigiCaptain", style: TextStyle(color: Colors.purple)),
-                        Text("Become DigiCaptain", style: TextStyle(fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ],
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(AppRadius.lg), boxShadow: AppShadows.soft),
+                child: TextField(
+                  controller: _searchController,
+                  focusNode: _searchFocus,
+                  textInputAction: TextInputAction.search,
+                  onChanged: (v) {
+                    setState(() {});
+                    _onSearchChanged(v);
+                  },
+                  onSubmitted: (v) {
+                    _debounce?.cancel();
+                    _search = v.trim();
+                    _loadShops();
+                    _scrollTo(_shopsKey);
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Search groceries, sweets, dairy, shops...',
+                    prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
+                    suffixIcon: _searchController.text.isEmpty
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.close_rounded, size: 20),
+                            onPressed: () {
+                              _searchController.clear();
+                              _search = '';
+                              setState(() {});
+                              _loadShops();
+                            },
+                          ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
                 ),
               ),
             ),
@@ -1728,45 +462,908 @@ class MainDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildDrawerItem(IconData icon, String title, BuildContext context) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.blue),
-      title: Text(title),
-      onTap: () {
-        Navigator.pop(context);
-        if (title == "Login / Register") {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => PhoneInputPage()),
-          );
-        }
-        if (title == "My Profile") {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => MyProfileScreen()),
-          );
-        }
-        if (title == "Rider History") {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => RideHistoryScreen()),
-          );
-        }
-        if (title == "Parcel History") {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => ParcelHistoryScreen()),
-          );
-        }
-        // Add other navigation cases as needed
-      },
+  Widget _buildPromoBanner() {
+    return Padding(
+      key: _earnKey,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(color: AppColors.navy, borderRadius: BorderRadius.circular(AppRadius.xl)),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              right: -40,
+              top: -40,
+              child: Container(
+                width: 130,
+                height: 130,
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), shape: BoxShape.circle),
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(color: AppColors.yellow, shape: BoxShape.circle),
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Own a shop or a bike? Earn with Gotan',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(color: AppColors.yellow, borderRadius: BorderRadius.circular(4)),
+                      child: const Text(
+                        '100% FREE',
+                        style: TextStyle(color: AppColors.navy, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                _EarnTile(
+                  icon: FontAwesomeIcons.store,
+                  iconColor: AppColors.teal,
+                  title: 'Open your DigiStall',
+                  subtitle: 'Sell to all of Gotan • your own store link',
+                  action: 'Register',
+                  onTap: () => openExternal(context, Common.digistallUrl),
+                ),
+                const SizedBox(height: 10),
+                _EarnTile(
+                  icon: FontAwesomeIcons.motorcycle,
+                  iconColor: AppColors.yellow,
+                  title: 'Ride & Earn',
+                  subtitle: 'Deliver orders & parcels • weekly payouts',
+                  action: 'Join',
+                  onTap: () => openExternal(context, Common.riderUrl),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterTabs() {
+    Widget tab(String name, IconData icon, Color iconColor, GlobalKey target) {
+      final active = _activeTab == name;
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 5),
+        child: Material(
+          color: active ? const Color(0xFF182531) : AppColors.surface,
+          shape: StadiumBorder(side: BorderSide(color: active ? const Color(0xFF182531) : AppColors.border)),
+          child: InkWell(
+            customBorder: const StadiumBorder(),
+            onTap: () {
+              setState(() => _activeTab = name);
+              _scrollTo(target);
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              child: Row(
+                children: [
+                  FaIcon(icon, size: 14, color: iconColor),
+                  const SizedBox(width: 8),
+                  Text(
+                    name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: active ? Colors.white : AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          tab('Shop', FontAwesomeIcons.bagShopping, const Color(0xFFF472B6), _shopsKey),
+          tab('Services', FontAwesomeIcons.screwdriverWrench, const Color(0xFFFACC15), _servicesKey),
+          tab('Earn', FontAwesomeIcons.briefcase, const Color(0xFF92400E), _earnKey),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategories() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(title: 'Categories'),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 100,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _categories.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 16),
+              itemBuilder: (context, i) {
+                final (name, image) = _categories[i];
+                final selected = _selectedTag == name;
+                return GestureDetector(
+                  onTap: () => _selectTag(name),
+                  child: SizedBox(
+                    width: 72,
+                    child: Column(
+                      children: [
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          width: 66,
+                          height: 66,
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: selected ? AppColors.teal : Colors.transparent, width: 3),
+                            boxShadow: AppShadows.soft,
+                          ),
+                          child: ClipOval(child: Image.asset(image, fit: BoxFit.cover)),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: selected ? AppColors.teal : AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormats() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(title: 'Shop by format', padding: EdgeInsets.zero),
+          const SizedBox(height: 14),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 2.35,
+            children: _formats.map((f) {
+              final selected = _selectedFormat?.id == f.id;
+              return AppCard(
+                padding: const EdgeInsets.all(10),
+                radius: AppRadius.xl,
+                borderColor: selected ? AppColors.teal : AppColors.border,
+                onTap: () => _selectFormat(selected ? null : f),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(color: f.bg, borderRadius: BorderRadius.circular(AppRadius.md)),
+                      child: Center(child: FaIcon(f.icon, color: f.fg, size: 19)),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(f.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                          const SizedBox(height: 2),
+                          Text(f.subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMatchedProducts() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(title: 'Products matching "$_search"'),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 172,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _matchedProducts.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, i) {
+                final p = _matchedProducts[i];
+                final images = p['productImages'] as List? ?? const [];
+                final price = p['productdiscountPrice'] is num && (p['productdiscountPrice'] as num) > 0
+                    ? p['productdiscountPrice'] as num
+                    : p['productPrice'] as num?;
+                final shopId = (p['shopId'] ?? '').toString();
+                return SizedBox(
+                  width: 130,
+                  child: AppCard(
+                    padding: EdgeInsets.zero,
+                    onTap: () {
+                      final shop = _shops.where((s) => s.shopId == shopId.toLowerCase()).firstOrNull ??
+                          Shop(shopImage: '', heading: (p['shopName'] ?? shopId).toString(), desc: '', shopId: shopId.toLowerCase());
+                      _openShop(shop);
+                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          height: 90,
+                          width: double.infinity,
+                          child: NetImage(images.isNotEmpty ? images.first.toString() : null, fallbackIcon: Icons.shopping_basket_outlined),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text((p['productName'] ?? '').toString(),
+                                  maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                              Text((p['shopName'] ?? shopId).toString(),
+                                  maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                              const SizedBox(height: 2),
+                              Text(rupees(price), style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.teal)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShopsHeader() {
+    return Padding(
+      key: _shopsKey,
+      padding: const EdgeInsets.fromLTRB(0, 24, 0, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(
+            title: _search.isNotEmpty ? 'Shops for "$_search"' : 'Shops near you',
+            actionLabel: (_selectedTag != 'All' || _selectedFormat != null || _search.isNotEmpty) ? 'Clear filters' : null,
+            onAction: () {
+              setState(() {
+                _selectedTag = 'All';
+                _selectedFormat = null;
+                _search = '';
+                _searchController.clear();
+              });
+              _loadShops();
+            },
+          ),
+          if (_selectedTag != 'All' || _selectedFormat != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  if (_selectedTag != 'All')
+                    InputChip(label: Text(_selectedTag), onDeleted: () => _selectTag('All')),
+                  if (_selectedFormat != null)
+                    InputChip(label: Text(_selectedFormat!.title), onDeleted: () => _selectFormat(null)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShopList() {
+    if (_loadingShops && _shops.isEmpty) {
+      return const SliverToBoxAdapter(
+        child: Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator())),
+      );
+    }
+    if (_shopsError != null && _shops.isEmpty) {
+      return SliverToBoxAdapter(
+        child: EmptyState(
+          icon: Icons.wifi_off_rounded,
+          title: 'Could not load shops',
+          message: _shopsError,
+          actionLabel: 'Retry',
+          onAction: _loadShops,
+        ),
+      );
+    }
+    if (_shops.isEmpty) {
+      return SliverToBoxAdapter(
+        child: EmptyState(
+          icon: Icons.storefront_outlined,
+          title: _selectedFormat != null ? 'No ${_selectedFormat!.title} shops yet' : 'No shops found',
+          message: 'Try another category or search term.',
+        ),
+      );
+    }
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      sliver: SliverList.separated(
+        itemCount: _shops.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, i) => _ShopCard(shop: _shops[i], onTap: () => _openShop(_shops[i])),
+      ),
+    );
+  }
+
+  Widget _buildCounter() {
+    if (_visits == null) return const SizedBox(height: 24);
+    return Padding(
+      padding: const EdgeInsets.only(top: 36, bottom: 8),
+      child: Column(
+        children: [
+          const FaIcon(FontAwesomeIcons.eye, size: 26, color: AppColors.textPrimary),
+          const SizedBox(height: 6),
+          Text('$_visits',
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, fontFamily: AppTheme.displayFamily)),
+          const Text('visits to Gotan', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+        ],
+      ),
     );
   }
 }
 
+// --------------------------------------------------------------- widgets
 
+class _PrimaryActionCard extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBg;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
 
+  const _PrimaryActionCard({
+    required this.icon,
+    required this.iconColor,
+    required this.iconBg,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
 
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+      child: Column(
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(AppRadius.xl)),
+            child: Center(child: FaIcon(icon, color: iconColor, size: 26)),
+          ),
+          const SizedBox(height: 14),
+          Text(title, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+          const SizedBox(height: 3),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
+class _EarnTile extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final String action;
+  final VoidCallback onTap;
 
+  const _EarnTile({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.action,
+    required this.onTap,
+  });
 
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(color: iconColor.withValues(alpha: 0.3)),
+                ),
+                child: Center(child: FaIcon(icon, color: iconColor, size: 17)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+                    const SizedBox(height: 2),
+                    Text(subtitle, style: const TextStyle(color: AppColors.textDisabled, fontSize: 11)),
+                  ],
+                ),
+              ),
+              Text('$action ▶', style: const TextStyle(color: AppColors.yellow, fontWeight: FontWeight.w600, fontSize: 13)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ShopCard extends StatelessWidget {
+  final Shop shop;
+  final VoidCallback onTap;
+
+  const _ShopCard({required this.shop, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Container(
+            width: 66,
+            height: 66,
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              child: NetImage(shop.shopImage, fallbackIcon: Icons.storefront_outlined),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(shop.heading,
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                const SizedBox(height: 4),
+                Text(
+                  shop.desc.isEmpty ? 'Local shop' : shop.desc,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                decoration: BoxDecoration(color: AppColors.tealLight, borderRadius: BorderRadius.circular(4)),
+                child: const Text(
+                  'DIGISTALL',
+                  style: TextStyle(color: AppColors.teal, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActiveBookingBanner extends StatelessWidget {
+  final Booking booking;
+  final VoidCallback onTap;
+
+  const _ActiveBookingBanner({required this.booking, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final ride = booking.kind == BookingKind.ride;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Material(
+        color: AppColors.teal,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), shape: BoxShape.circle),
+                  child: Center(
+                    child: FaIcon(ride ? FontAwesomeIcons.motorcycle : FontAwesomeIcons.boxOpen, color: Colors.white, size: 18),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ride ? 'Your ride · ${booking.stageLabel}' : 'Your parcel · ${booking.stageLabel}',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        booking.drop,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                const Text('Track', style: TextStyle(color: AppColors.yellow, fontWeight: FontWeight.w700)),
+                const Icon(Icons.chevron_right_rounded, color: AppColors.yellow),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Website footer: contact, socials, legal and policy links.
+class HomeFooter extends StatelessWidget {
+  const HomeFooter({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget social(IconData icon, String url) => IconButton(
+          onPressed: () => openExternal(context, url),
+          icon: FaIcon(icon, size: 20, color: AppColors.textSecondary),
+        );
+    Widget link(String label, String url) => TextButton(
+          onPressed: () => openExternal(context, url),
+          child: Text(label, style: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
+        );
+
+    return Container(
+      margin: const EdgeInsets.only(top: 24),
+      padding: const EdgeInsets.fromLTRB(20, 28, 20, 36),
+      color: AppColors.background,
+      child: Column(
+        children: [
+          Image.asset('assets/images/gologo.png', height: 36),
+          const SizedBox(height: 16),
+          InkWell(
+            onTap: () => openWhatsApp(context, Common.supportPhone),
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FaIcon(FontAwesomeIcons.whatsapp, size: 16, color: AppColors.success),
+                  SizedBox(width: 8),
+                  Text('+91 ${Common.supportPhone}', style: TextStyle(fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ),
+          InkWell(
+            onTap: () => emailSupport(context),
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.mail_outline_rounded, size: 16, color: AppColors.textSecondary),
+                  SizedBox(width: 8),
+                  Text(Common.supportEmail),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text('7 Siyag House, Gotan, Rajasthan 342902',
+              textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              social(FontAwesomeIcons.instagram, 'https://www.instagram.com/digistallapp/'),
+              social(FontAwesomeIcons.linkedin, 'https://www.linkedin.com/company/humans-of-rural-india/'),
+              social(FontAwesomeIcons.facebook, 'https://www.facebook.com/humansofruralindia/'),
+              social(FontAwesomeIcons.xTwitter, 'https://x.com/DigistallApp'),
+              social(FontAwesomeIcons.youtube, 'https://www.youtube.com/@digistall'),
+            ],
+          ),
+          Wrap(
+            alignment: WrapAlignment.center,
+            children: [
+              link('Newsletter', 'https://digistall.substack.com/'),
+              link('Privacy Policy', Common.privacyUrl),
+              link('Terms', Common.termsUrl),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Siyag Rural Market Private Limited [© Digistall]\nCIN: U52100RJ2021PTC077111 · GSTIN: 08ABGCS8909L1ZN',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 11, height: 1.5),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Side menu, matching the website navbar sidebar.
+class MainDrawer extends StatelessWidget {
+  final VoidCallback? onChanged;
+
+  const MainDrawer({super.key, this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final user = context.watch<UserProvider>();
+
+    void go(Widget page) {
+      Navigator.pop(context);
+      Navigator.push(context, MaterialPageRoute(builder: (_) => page)).then((_) => onChanged?.call());
+    }
+
+    Widget item(IconData icon, String title, VoidCallback onTap) => ListTile(
+          leading: Icon(icon, color: AppColors.textSecondary, size: 22),
+          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+          onTap: onTap,
+        );
+
+    return Drawer(
+      width: 290,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 8, 12),
+              child: Row(
+                children: [
+                  Image.asset('assets/images/gologo.png', height: 32),
+                  const Spacer(),
+                  IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(context)),
+                ],
+              ),
+            ),
+            const Divider(),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: user.isLoggedIn
+                        ? InkWell(
+                            onTap: () => go(const MyProfileScreen()),
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: AppColors.tealLight,
+                                borderRadius: BorderRadius.circular(AppRadius.md),
+                                border: Border.all(color: AppColors.teal.withValues(alpha: 0.2)),
+                              ),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 24,
+                                    backgroundColor: AppColors.surface,
+                                    child: ClipOval(
+                                      child: user.profileImage.isEmpty
+                                          ? const Icon(Icons.person_outline_rounded, color: AppColors.teal)
+                                          : NetImage(user.profileImage, width: 48, height: 48, fallbackIcon: Icons.person_outline),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(user.name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(fontWeight: FontWeight.w700)),
+                                        Text('+91 ${user.phone}',
+                                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : AppButton(label: 'Login / Register', onPressed: () => go(const PhoneInputPage())),
+                  ),
+                  const SizedBox(height: 20),
+                  item(Icons.home_outlined, 'Home', () => Navigator.pop(context)),
+                  if (user.isLoggedIn) item(Icons.person_outline_rounded, 'My Profile', () => go(const MyProfileScreen())),
+                  item(Icons.pedal_bike_rounded, 'Rider History', () => go(const BookingHistoryScreen(initialKind: BookingKind.ride))),
+                  item(Icons.inventory_2_outlined, 'Parcel History', () => go(const BookingHistoryScreen(initialKind: BookingKind.parcel))),
+                  item(Icons.receipt_long_outlined, 'My Shop Orders', () => go(const OrderHistoryPage())),
+                  const SizedBox(height: 24),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Column(
+                      children: [
+                        _DrawerCard(
+                          color: AppColors.successBg,
+                          borderColor: AppColors.success.withValues(alpha: 0.2),
+                          iconBg: AppColors.surface,
+                          icon: const Icon(Icons.call_outlined, color: AppColors.success),
+                          label: 'ORDER ON CALL',
+                          labelColor: AppColors.success,
+                          title: '+91 ${Common.supportPhone}',
+                          titleColor: AppColors.textPrimary,
+                          onTap: () => callNumber(context, Common.supportPhone),
+                        ),
+                        const SizedBox(height: 12),
+                        _DrawerCard(
+                          color: AppColors.navy,
+                          borderColor: AppColors.navy,
+                          iconBg: AppColors.teal,
+                          icon: const FaIcon(FontAwesomeIcons.motorcycle, color: Colors.white, size: 18),
+                          label: 'DIGICAPTAIN',
+                          labelColor: AppColors.tealLight,
+                          title: 'Become a Rider',
+                          titleColor: Colors.white,
+                          onTap: () => openExternal(context, Common.riderUrl),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawerCard extends StatelessWidget {
+  final Color color;
+  final Color borderColor;
+  final Color iconBg;
+  final Widget icon;
+  final String label;
+  final Color labelColor;
+  final String title;
+  final Color titleColor;
+  final VoidCallback onTap;
+
+  const _DrawerCard({
+    required this.color,
+    required this.borderColor,
+    required this.iconBg,
+    required this.icon,
+    required this.label,
+    required this.labelColor,
+    required this.title,
+    required this.titleColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md), side: BorderSide(color: borderColor)),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle, boxShadow: AppShadows.soft),
+                child: Center(child: icon),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: TextStyle(color: labelColor, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
+                  Text(title, style: TextStyle(color: titleColor, fontWeight: FontWeight.w700, fontSize: 14)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

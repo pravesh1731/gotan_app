@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:lottie/lottie.dart';
 
+import '../providers/UserProvider.dart';
+import '../services/session.dart';
+import '../theme/app_theme.dart';
 import 'PhoneInputPage.dart';
 import 'homepage.dart';
 
 class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
@@ -19,48 +23,58 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _navigate() async {
-    await Future.delayed(Duration(seconds: 3)); // Lottie delay
+    await Future.delayed(const Duration(milliseconds: 1500));
 
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    final phone = prefs.getString('gotan_phone_number');
-    final skip = prefs.getString('skip');
+    final prefs = await SharedPreferences.getInstance();
+    final skipped = prefs.getString(Session.kSkip) == 'skipped';
+    if (!mounted) return;
+    final loggedIn = context.read<UserProvider>().isLoggedIn;
 
-    if ((phone == null) && (skip == 'skipped')) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => HomePage()),
-      );
-    } else if((phone == null) && (skip == null)) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => PhoneInputPage()),
-      );
-    }
-    else{
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => HomePage()),
-      );
-    }
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => (loggedIn || skipped) ? const HomePage() : const PhoneInputPage()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-      statusBarColor: Colors.white,
-      statusBarIconBrightness: Brightness.dark,
-    ));
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Center(
-          child: Image.asset(
-            'assets/images/logo.png',
-            width: 200,
-            height: 200,
-            fit: BoxFit.contain,
+      backgroundColor: AppColors.surface,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [AppColors.pastelBlue, AppColors.surface],
+                ),
+              ),
+            ),
           ),
-        ),
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset('assets/images/gologo.png', height: 72, fit: BoxFit.contain),
+                const SizedBox(height: 16),
+                const Text(
+                  'Rides · Parcels · Local shops',
+                  style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 40,
+            child: Center(
+              child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4)),
+            ),
+          ),
+        ],
       ),
     );
   }

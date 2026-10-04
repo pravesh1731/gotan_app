@@ -1,361 +1,315 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:gotan/global/common.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:provider/provider.dart';
 
-import '../providers/UserProvider.dart';
-import '../services/notification_service.dart';
+import '../services/api.dart';
+import '../services/session.dart';
+import '../theme/app_theme.dart';
+import '../widgets/ui.dart';
 import 'OTPVerificationPage.dart';
-import 'HomePage.dart';
+import 'homepage.dart';
+import 'login_flow.dart';
 
 class PhoneInputPage extends StatefulWidget {
+  const PhoneInputPage({super.key});
+
   @override
-  _PhoneInputPageState createState() => _PhoneInputPageState();
+  State<PhoneInputPage> createState() => _PhoneInputPageState();
 }
 
 class _PhoneInputPageState extends State<PhoneInputPage> {
-  bool isLoading = false;
-  bool showPasswordField = false;
-  String countryCode = '+91';
-  TextEditingController phoneController = TextEditingController();
-  TextEditingController passwordController = TextEditingController();
+  static const countryCode = '+91';
 
-  Future<void> loginWithPassword() async {
+  final _phoneController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
+  bool _usePassword = false;
+  bool _obscure = true;
 
-    final phone = phoneController.text.trim();
-    final password = passwordController.text.trim();
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
-    if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Please enter your phone number")),
-      );
-      return;
+  String? _validPhone() {
+    final phone = _phoneController.text.replaceAll(RegExp(r'\D'), '');
+    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(phone)) {
+      showAppSnack(context, 'Enter a valid 10-digit mobile number', error: true);
+      return null;
     }
+    return phone;
+  }
+
+  Future<void> _loginWithPassword() async {
+    final phone = _validPhone();
+    if (phone == null) return;
+    final password = _passwordController.text.trim();
     if (password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Please enter your password")),
-      );
+      showAppSnack(context, 'Please enter your password', error: true);
       return;
     }
 
-    setState(() {
-      isLoading = true;
-    });
-
-    final loginUrl = Uri.parse(Common.baseUrl+"api/auth/loginuserwithpassword"); // 🔁 Replace
-    final secondApiUrl = Uri.parse(Common.baseUrl+"api/user/getuser"); // 🔁 Replace
-
+    setState(() => _isLoading = true);
     try {
-      // 🔐 1st API: Password Login
-      final loginResponse = await http.post(
-        loginUrl,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "phoneNumber": phone,
-          "password": password,
-        }),
-      );
-
-      if (loginResponse.statusCode == 200) {
-        // ✅ 2nd API: Fetch user details
-        final secondResponse = await http.post(
-          secondApiUrl,
-          headers: {"Content-Type": "application/json"},
-          body: jsonEncode({"phoneNumber": phone}),
-        );
-
-        // setState(() {
-        //   isLoading = false;
-        // });
-
-        if (secondResponse.statusCode == 200) {
-          final data = jsonDecode(secondResponse.body);
-
-          // 🧠 Save to SharedPreferences
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString("gotan_name", data["name"]);
-          await prefs.setString("gotan_city", data["cityName"]);
-          await prefs.setString("gotan_userOtp", data["userOtp"]);
-          await prefs.setString("gotan_phone_number", phone);
-
-          final userProvider = Provider.of<UserProvider>(context, listen: false);
-          userProvider.loadFromPrefs(
-            prefs.getString('gotan_name') ?? "Customer",
-            prefs.getString('gotan_phone_number') ?? "0000000000",
-          );
-
-          await NotificationService().resetFcmToken();
-
-          setState(() {
-            isLoading = false;
-          });
-
-
-
-          // ✅ Navigate to HomePage
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => HomePage()),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Failed to fetch user details")),
-          );
-        }
-      } else {
-        setState(() {
-          isLoading = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Login failed. Please check credentials.")),
-        );
-      }
+      await Api.loginWithPassword(phone, password);
+      if (!mounted) return;
+      await finishLogin(context, phone);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      final msg = e.statusCode == 404
+          ? 'No account found for this number. Log in with OTP to create one.'
+          : e.statusCode == 401
+              ? 'Incorrect password. Try again or log in with OTP.'
+              : e.message;
+      showAppSnack(context, msg, error: true);
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: ${e.toString()}")),
-      );
+      if (mounted) showAppSnack(context, 'Login failed. Please try again.', error: true);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  Future<void> _sendOtp() async {
+    final phone = _validPhone();
+    if (phone == null) return;
+    setState(() => _isLoading = true);
 
-  // 🔐 OTP-based Firebase login
-  Future<void> sendOTP() async {
-
-
-    final phone = phoneController.text.trim();
-
-    if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Please enter your phone number")),
-      );
-      return;
-    }
-
-
-
-    setState(() {
-      isLoading = true;
-    });
-
+    var handled = false;
     try {
-
-      await FirebaseAuth.instance.signOut(); // 💡 Important fix
-
+      await FirebaseAuth.instance.signOut();
       await FirebaseAuth.instance.verifyPhoneNumber(
-        phoneNumber: '$countryCode${phone.trim()}',
-        timeout: Duration(seconds: 120), // Increased timeout to 2 minutes
+        phoneNumber: '$countryCode$phone',
+        timeout: const Duration(seconds: 60),
         verificationCompleted: (PhoneAuthCredential credential) async {
-          // await FirebaseAuth.instance.signInWithCredential(credential);
-        },
-        verificationFailed: (FirebaseAuthException e) {
-          setState(() {
-            isLoading = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Error: ${e.message}")),
-          );
-        },
-        codeSent: (String verId, int? resendToken) {
-          setState(() {
-            isLoading = false;
-          });
-          if (verId != null && verId.isNotEmpty) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => OTPVerificationPage(verificationId: verId),
-              ),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text("Failed to send OTP. Please try again.")),
-            );
+          // Android can verify the SMS automatically; skip the OTP screen.
+          if (handled) return;
+          handled = true;
+          try {
+            await FirebaseAuth.instance.signInWithCredential(credential);
+            await Api.authenticate(phone, deviceToken: await Session.deviceToken());
+            if (!mounted) return;
+            await finishLogin(context, phone);
+          } catch (e) {
+            if (mounted) {
+              setState(() => _isLoading = false);
+              showAppSnack(context, e.toString(), error: true);
+            }
           }
         },
-        codeAutoRetrievalTimeout: (String verId) {
-          setState(() {
-            isLoading = false;
-          });
+        verificationFailed: (FirebaseAuthException e) {
+          if (!mounted) return;
+          setState(() => _isLoading = false);
+          final msg = switch (e.code) {
+            'invalid-phone-number' => 'That phone number looks invalid.',
+            'too-many-requests' => 'Too many attempts. Please try again later or use password login.',
+            'network-request-failed' => 'No internet connection.',
+            _ => e.message ?? 'Could not send OTP. Please try again.',
+          };
+          showAppSnack(context, msg, error: true);
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          if (!mounted || handled) return;
+          setState(() => _isLoading = false);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => OTPVerificationPage(
+                verificationId: verificationId,
+                phone: phone,
+                resendToken: resendToken,
+              ),
+            ),
+          );
+        },
+        codeAutoRetrievalTimeout: (_) {
+          if (mounted) setState(() => _isLoading = false);
         },
       );
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to send OTP.")),
-      );
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      showAppSnack(context, 'Could not send OTP. Please try again.', error: true);
     }
   }
 
-  Future<void> skipLogin() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('skip', 'skipped');
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => HomePage()),
-    );
+  Future<void> _skip() async {
+    await Session.skipLogin();
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const HomePage()), (_) => false);
   }
-
-  // ... (keep all your existing methods: loginWithPassword, sendOTP, etc.)
 
   @override
   Widget build(BuildContext context) {
+    final canPop = Navigator.canPop(context);
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: Color(0xfff9fafc), // or any background
-        statusBarIconBrightness: Brightness.dark,
-      ),
+      value: AppTheme.lightStatusBar,
       child: Scaffold(
-        backgroundColor: const Color(0xfff9fafc),
-        body: SafeArea(
-          child: Stack(
-            children: [
-              // Main centered content
-              Center(
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
+        backgroundColor: AppColors.surface,
+        body: Stack(
+          children: [
+            Positioned(
+              top: -80,
+              left: -60,
+              child: Container(
+                width: 260,
+                height: 260,
+                decoration: BoxDecoration(color: AppColors.teal.withValues(alpha: 0.10), shape: BoxShape.circle),
+              ),
+            ),
+            SafeArea(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
+                    child: Row(
                       children: [
-                        Text(
-                          "Get Started",
-                          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
-                        ),
-                        const SizedBox(height: 30),
-                        Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              alignment: Alignment.center,
-                              child: Image.asset('assets/images/india.png', width: 24),
-                            ),
-                            Expanded(
-                              child: TextField(
-                                controller: phoneController,
-                                maxLength: 10,
-                                keyboardType: TextInputType.phone,
-                                decoration: InputDecoration(
-                                  hintText: "10 digit phone number",
-                                  counterText: "",
-                                  filled: true,
-                                  fillColor: Colors.white,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (showPasswordField) ...[
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: passwordController,
-                            obscureText: true,
-                            decoration: InputDecoration(
-                              hintText: "Enter password",
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
+                        if (canPop)
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
                           ),
-                        ],
-                        const SizedBox(height: 20),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: isLoading
-                                ? null
-                                : () {
-                              if (showPasswordField) {
-                                loginWithPassword();
-                              } else {
-                                sendOTP();
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.black,
-                              padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: isLoading
-                                ? SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2.5,
-                              ),
-                            )
-                                : Text(
-                              showPasswordField ? "Login" : "Send OTP",
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
+                        const Spacer(),
                         TextButton(
-                          onPressed: () {
-                            setState(() {
-                              showPasswordField = !showPasswordField;
-                            });
-                          },
-                          child: Text(
-                            showPasswordField ? "Login with OTP?" : "Login with Password",
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
+                          onPressed: _isLoading ? null : _skip,
+                          child: const Text('Skip', style: TextStyle(color: AppColors.textSecondary)),
                         ),
                       ],
                     ),
                   ),
-                ),
-              ),
-
-              // Skip button positioned in bottom-right
-              Positioned(
-                bottom: 24,
-                right: 24,
-                child: ElevatedButton(
-                  onPressed: skipLogin,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                  Expanded(
+                    child: Center(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        child: Column(
+                          children: [
+                            Image.asset('assets/images/gologo.png', height: 52),
+                            const SizedBox(height: 28),
+                            _buildCard(),
+                            const SizedBox(height: 20),
+                            const Text(
+                              'By continuing you agree to our Terms & Privacy Policy.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                  child: Text(
-                    "Skip",
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCard() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.xxl),
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadows.soft,
+      ),
+      child: Column(
+        children: [
+          const Text.rich(
+            TextSpan(
+              text: 'Welcome to ',
+              children: [TextSpan(text: 'Gotan', style: TextStyle(color: AppColors.teal))],
+            ),
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _usePassword ? 'Log in with your password' : 'We will send a 6-digit OTP to your number',
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    boxShadow: AppShadows.soft,
+                  ),
+                  child: Row(
+                    children: [
+                      Image.asset('assets/images/india.png', width: 22),
+                      const SizedBox(width: 6),
+                      const Text(countryCode, style: TextStyle(fontWeight: FontWeight.w600)),
+                    ],
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 6),
+                Expanded(
+                  child: TextField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    maxLength: 10,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, letterSpacing: 1),
+                    decoration: const InputDecoration(
+                      hintText: '10 digit phone number',
+                      counterText: '',
+                      filled: false,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+          if (_usePassword) ...[
+            const SizedBox(height: 14),
+            TextField(
+              controller: _passwordController,
+              obscureText: _obscure,
+              onSubmitted: (_) => _loginWithPassword(),
+              decoration: InputDecoration(
+                hintText: 'Password',
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 20),
+          AppButton(
+            label: _usePassword ? 'Log in' : 'Send OTP',
+            height: 54,
+            loading: _isLoading,
+            onPressed: _usePassword ? _loginWithPassword : _sendOtp,
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: _isLoading ? null : () => setState(() => _usePassword = !_usePassword),
+            child: Text(
+              _usePassword ? 'Log in with OTP instead' : 'Log in with password',
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1,18 +1,22 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../global/common.dart';
 import '../model/directions.dart';
 
 class DirectionsRepository {
-  static const String _baseUrl =
-      'https://maps.googleapis.com/maps/api/directions/json?';
+  static const String _baseUrl = 'https://maps.googleapis.com/maps/api/directions/json?';
 
   final Dio _dio;
 
-  DirectionsRepository({Dio? dio}) : _dio = dio ?? Dio();
+  DirectionsRepository({Dio? dio})
+      : _dio = dio ??
+            Dio(BaseOptions(
+              connectTimeout: const Duration(seconds: 15),
+              receiveTimeout: const Duration(seconds: 15),
+            ));
 
-
+  /// Returns null when Google has no route; throws on network failure.
   Future<Directions?> getDirections({
     required LatLng origin,
     required LatLng destination,
@@ -22,13 +26,14 @@ class DirectionsRepository {
       queryParameters: {
         'origin': '${origin.latitude},${origin.longitude}',
         'destination': '${destination.latitude},${destination.longitude}',
-        'key': "AIzaSyB-HKYA7Ps8XvDkW4FBY6DR25Yk9yOnteQ",
+        'key': Common.mapsApiKey,
       },
     );
 
-    // Check if response is successful
-    if (response.statusCode == 200) {
-      return Directions.fromMap(response.data);
+    if (response.statusCode == 200 && response.data is Map) {
+      final data = Map<String, dynamic>.from(response.data);
+      if (data['status'] != 'OK') return null;
+      return Directions.fromMap(data);
     }
     return null;
   }

@@ -1,166 +1,102 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../model/cart_item.dart';
+
+import '../model/store.dart';
 import '../providers/CartProvider.dart';
 import '../providers/WishlistProvider.dart';
-import 'package:lottie/lottie.dart';
+import '../theme/app_theme.dart';
+import '../widgets/ui.dart';
+import 'ProductDetailScreen.dart';
 
 class WishlistScreen extends StatelessWidget {
-  final String shopId;
+  final Store store;
+  final VoidCallback onOpenShop;
 
-  const WishlistScreen({Key? key, required this.shopId}) : super(key: key);
+  const WishlistScreen({super.key, required this.store, required this.onOpenShop});
 
   @override
   Widget build(BuildContext context) {
+    final wishlist = context.watch<WishlistProvider>();
+    // Only items from this shop can be ordered here; match against the live catalog.
+    final items = wishlist
+        .forStore(store.shopId)
+        .map((i) => (item: i, product: store.productById(i.id)))
+        .where((e) => e.product != null)
+        .toList();
+
     return Scaffold(
-      // backgroundColor: Colors.white,
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const Text('My Wishlist', style: TextStyle( fontSize: 18, fontWeight: FontWeight.bold),),
-        // backgroundColor: Colors.white,
-        elevation: 0, // no shadow
-        shadowColor: Colors.transparent, // remove shadow color entirely
-      ),
-
-      body: Consumer2<WishlistProvider, CartProvider>(
-        builder: (context, wishlistProvider, cartProvider, _) {
-          // Filter out items that are already in the cart for this shop
-          final items = wishlistProvider.wishlist.values.where((item) {
-            final quantity = cartProvider.getQuantity(shopId, item.id);
-            if (quantity > 0) {
-              // Remove from wishlist if already in cart
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                wishlistProvider.removeFromWishlist(item.id);
-              });
-              return false;
-            }
-            return true;
-          }).toList();
-
-          if (items.isEmpty) {
-            return SizedBox(
-              height: MediaQuery.of(context).size.height - 3 * kToolbarHeight,
-              child: Center(
-                child: SizedBox(
-                  height: 200,
-                  child: Lottie.asset('assets/animations/empty_tasks.json'),
-                ),
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(12),
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return Card(
-                color: Colors.white,
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(10)),
-                          child: Image.network(
-                            item.imageUrl,
-                            height: 130,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
+      appBar: AppBar(title: const Text('Wishlist'), automaticallyImplyLeading: false),
+      body: items.isEmpty
+          ? EmptyState(
+              icon: Icons.favorite_border_rounded,
+              title: 'Your wishlist is empty',
+              message: 'Tap the heart on a product to save it for later.',
+              actionLabel: 'Browse products',
+              onAction: onOpenShop,
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, i) {
+                final product = items[i].product!;
+                return AppCard(
+                  padding: const EdgeInsets.all(10),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => ProductDetailScreen(store: store, product: product)),
+                  ),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        child: SizedBox(width: 72, height: 72, child: NetImage(product.image, fallbackIcon: Icons.shopping_basket_outlined)),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 4),
+                            Text(rupees(product.sellingPrice), style: const TextStyle(fontWeight: FontWeight.w800)),
+                            if (!product.inStock)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 4),
+                                child: StatusChip(label: 'Out of stock', tone: Tone.error, dense: true),
+                              ),
+                          ],
                         ),
-                        Positioned(
-                          right: 6,
-                          top: 6,
-                          child: GestureDetector(
-                            onTap: () {
-                              wishlistProvider.removeFromWishlist(item.id);
-                            },
-                            child: const Icon(Icons.close, color: Colors.black),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      ),
+                      Column(
                         children: [
-                          Text(item.name,
-                              style: const TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 4),
-                          Text('Dairyfarm',
-                              style: TextStyle(
-                                  color: Colors.grey[600], fontSize: 12)),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Text(
-                                '₹ ${item.price.toStringAsFixed(0)}',
-                                style: const TextStyle(
-                                  decoration: TextDecoration.lineThrough,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '₹ ${item.discountPrice.toStringAsFixed(0)}',
-                                style:
-                                const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
+                          IconButton(
+                            tooltip: 'Remove',
+                            onPressed: () => wishlist.removeFromWishlist(product.id),
+                            icon: const Icon(Icons.delete_outline_rounded, color: AppColors.textSecondary),
                           ),
-                          const SizedBox(height: 10),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
+                          if (product.inStock)
+                            IconButton.filledTonal(
+                              tooltip: 'Move to cart',
                               onPressed: () {
-                                cartProvider.addItem(shopId, {
-                                  'productId': item.id,
-                                  'productName': item.name,
-                                  'productCategory': item.category,
-                                  'productImages': [item.imageUrl],
-                                  'productPrice': item.price,
-                                  'productdiscountPrice': item.discountPrice,
-                                  'productUnits': item.units,
-                                  'productUnitType': item.unitType,
-                                  'productRibbon': item.productRibbon,
-                                  'productDescription': item.description,
-                                });
-
-                                wishlistProvider.removeFromWishlist(item.id);
-
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('Moved to cart')),
-                                );
+                                if (product.hasVariants) {
+                                  Navigator.push(context,
+                                      MaterialPageRoute(builder: (_) => ProductDetailScreen(store: store, product: product)));
+                                  return;
+                                }
+                                context.read<CartProvider>().addProduct(store.shopId, product);
+                                wishlist.removeFromWishlist(product.id);
+                                showAppSnack(context, 'Moved to cart');
                               },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.teal,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                padding:
-                                const EdgeInsets.symmetric(vertical: 14),
-                              ),
-                              child: const Text('ADD TO BAG', style: TextStyle(color: Colors.white),),
+                              icon: const Icon(Icons.add_shopping_cart_rounded, color: AppColors.teal),
                             ),
-                          ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
+                    ],
+                  ),
+                );
+              },
+            ),
     );
   }
 }
