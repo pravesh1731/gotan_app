@@ -39,7 +39,7 @@ class _ShopFormat {
   final String subtitle;
   final Color bg;
   final Color fg;
-  final IconData icon;
+  final FaIconData icon;
   const _ShopFormat(this.id, this.title, this.subtitle, this.bg, this.fg, this.icon);
 }
 
@@ -300,25 +300,38 @@ class _HomePageState extends State<HomePage> {
           backgroundColor: AppColors.surface,
           drawer: MainDrawer(onChanged: _loadActiveBookings),
           body: Builder(
-            builder: (scaffoldContext) => RefreshIndicator(
-              onRefresh: _refresh,
-              color: AppColors.teal,
-              child: CustomScrollView(
-                controller: _scrollController,
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverToBoxAdapter(child: _buildTopSection(scaffoldContext, user)),
-                  SliverToBoxAdapter(child: _buildPromoBanner()),
-                  SliverToBoxAdapter(child: _buildFilterTabs()),
-                  SliverToBoxAdapter(child: _buildCategories()),
-                  SliverToBoxAdapter(child: _buildFormats()),
-                  if (_matchedProducts.isNotEmpty) SliverToBoxAdapter(child: _buildMatchedProducts()),
-                  SliverToBoxAdapter(child: _buildShopsHeader()),
-                  _buildShopList(),
-                  SliverToBoxAdapter(child: _buildCounter()),
-                  const SliverToBoxAdapter(child: HomeFooter()),
-                ],
-              ),
+            builder: (scaffoldContext) => Stack(
+              children: [
+                RefreshIndicator(
+                  onRefresh: _refresh,
+                  color: AppColors.teal,
+                  edgeOffset: MediaQuery.paddingOf(context).top,
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverToBoxAdapter(child: _buildTopSection(scaffoldContext, user)),
+                      SliverToBoxAdapter(child: _buildPromoBanner()),
+                      SliverToBoxAdapter(child: _buildFilterTabs()),
+                      SliverToBoxAdapter(child: _buildCategories()),
+                      SliverToBoxAdapter(child: _buildFormats()),
+                      if (_matchedProducts.isNotEmpty) SliverToBoxAdapter(child: _buildMatchedProducts()),
+                      SliverToBoxAdapter(child: _buildShopsHeader()),
+                      _buildShopList(),
+                      SliverToBoxAdapter(child: _buildCounter()),
+                      const SliverToBoxAdapter(child: HomeFooter()),
+                    ],
+                  ),
+                ),
+                // Opaque strip so scrolled content doesn't run under the status bar icons.
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: MediaQuery.paddingOf(context).top,
+                  child: const ColoredBox(color: AppColors.pastelBlue),
+                ),
+              ],
             ),
           ),
         ),
@@ -535,7 +548,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildFilterTabs() {
-    Widget tab(String name, IconData icon, Color iconColor, GlobalKey target) {
+    Widget tab(String name, FaIconData icon, Color iconColor, GlobalKey target) {
       final active = _activeTab == name;
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 5),
@@ -860,7 +873,7 @@ class _HomePageState extends State<HomePage> {
 // --------------------------------------------------------------- widgets
 
 class _PrimaryActionCard extends StatelessWidget {
-  final IconData icon;
+  final FaIconData icon;
   final Color iconColor;
   final Color iconBg;
   final String title;
@@ -904,7 +917,7 @@ class _PrimaryActionCard extends StatelessWidget {
 }
 
 class _EarnTile extends StatelessWidget {
-  final IconData icon;
+  final FaIconData icon;
   final Color iconColor;
   final String title;
   final String subtitle;
@@ -1096,7 +1109,7 @@ class HomeFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget social(IconData icon, String url) => IconButton(
+    Widget social(FaIconData icon, String url) => IconButton(
           onPressed: () => openExternal(context, url),
           icon: FaIcon(icon, size: 20, color: AppColors.textSecondary),
         );

@@ -152,7 +152,14 @@ class AppTheme {
         backgroundColor: AppColors.surface,
         selectedColor: AppColors.tealLight,
         side: const BorderSide(color: AppColors.border),
-        labelStyle: const TextStyle(fontFamily: fontFamily, fontSize: 13, fontWeight: FontWeight.w600),
+        // Needs an explicit color: a theme labelStyle replaces the M3 default,
+        // and a null color renders white (invisible on the white chip).
+        labelStyle: const TextStyle(
+          fontFamily: fontFamily,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
       ),
       snackBarTheme: SnackBarThemeData(

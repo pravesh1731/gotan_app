@@ -85,49 +85,8 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     }
   }
 
-  Future<void> _setPassword() async {
-    final user = context.read<UserProvider>();
-    final pass = TextEditingController();
-    final confirm = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Set a password'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Use it to log in without an OTP.', style: TextStyle(color: AppColors.textSecondary)),
-            const SizedBox(height: 14),
-            TextField(controller: pass, obscureText: true, decoration: const InputDecoration(hintText: 'New password')),
-            const SizedBox(height: 10),
-            TextField(controller: confirm, obscureText: true, decoration: const InputDecoration(hintText: 'Confirm password')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-    if (pass.text.length < 6) {
-      showAppSnack(context, 'Password must be at least 6 characters', error: true);
-      return;
-    }
-    if (pass.text != confirm.text) {
-      showAppSnack(context, 'Passwords do not match', error: true);
-      return;
-    }
-    try {
-      await Api.setPassword(user.phone, pass.text);
-      if (mounted) showAppSnack(context, 'Password saved');
-    } catch (e) {
-      if (mounted) showAppSnack(context, e.toString(), error: true);
-    }
-  }
-
   Future<void> _logout() async {
-    final ok = await confirmDialog(context, title: 'Log out?', message: 'You can log back in with OTP or password.', confirmLabel: 'Log out');
+    final ok = await confirmDialog(context, title: 'Log out?', message: 'You can log back in with OTP.', confirmLabel: 'Log out');
     if (!ok || !mounted) return;
     await context.read<UserProvider>().logout();
     if (!mounted) return;
@@ -327,7 +286,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: Column(
                 children: [
-                  tile(Icons.lock_outline_rounded, 'Set password', _setPassword, subtitle: 'Log in without OTP'),
                   tile(Icons.support_agent_rounded, 'Help & support', _showHelp),
                   tile(Icons.privacy_tip_outlined, 'Privacy policy', () => openExternal(context, Common.privacyUrl)),
                   tile(Icons.description_outlined, 'Terms & conditions', () => openExternal(context, Common.termsUrl)),

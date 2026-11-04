@@ -10,7 +10,7 @@ import '../theme/app_theme.dart';
 import '../widgets/ui.dart';
 import 'homepage.dart';
 
-/// Shared last step of OTP and password login: loads the profile (name and
+/// Shared last step of OTP login: loads the profile (name and
 /// ride OTP) from gotanbackend, asks for a name if the account has none, then
 /// opens the home screen.
 Future<void> finishLogin(BuildContext context, String phone) async {

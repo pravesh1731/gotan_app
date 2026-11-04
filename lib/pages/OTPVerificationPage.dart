@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:sms_autofill/sms_autofill.dart';
 
 import '../services/api.dart';
@@ -26,7 +27,9 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> with CodeAuto
   late String _verificationId = widget.verificationId;
   late int? _resendToken = widget.resendToken;
   bool _isVerifying = false;
-  int _secondsLeft = 30;
+  // Only the resend label listens to this, so the countdown never rebuilds
+  // (and clears) the OTP field.
+  final _secondsLeft = ValueNotifier<int>(30);
   Timer? _timer;
 
   @override
@@ -41,15 +44,16 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> with CodeAuto
     cancel();
     _timer?.cancel();
     _otpController.dispose();
+    _secondsLeft.dispose();
     super.dispose();
   }
 
   void _startCountdown() {
     _timer?.cancel();
-    setState(() => _secondsLeft = 30);
+    _secondsLeft.value = 30;
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (_secondsLeft <= 1) t.cancel();
-      if (mounted) setState(() => _secondsLeft--);
+      if (_secondsLeft.value <= 1) t.cancel();
+      _secondsLeft.value = _secondsLeft.value - 1;
     });
   }
 
@@ -143,27 +147,30 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> with CodeAuto
                 style: const TextStyle(color: AppColors.textSecondary, height: 1.4),
               ),
               const SizedBox(height: 32),
-              PinFieldAutoFill(
-                codeLength: 6,
+              TextField(
                 controller: _otpController,
-                autoFocus: true,
-                decoration: BoxLooseDecoration(
-                  textStyle: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-                  strokeColorBuilder: const FixedColorBuilder(AppColors.border),
-                  bgColorBuilder: const FixedColorBuilder(AppColors.background),
-                  radius: const Radius.circular(AppRadius.md),
-                ),
-                onCodeChanged: (c) {
-                  if (c != null && c.length == 6) _verify();
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                maxLength: 6,
+                autofillHints: const [AutofillHints.oneTimeCode],
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700, letterSpacing: 12),
+                decoration: const InputDecoration(counterText: '', hintText: '------'),
+                onChanged: (v) {
+                  if (v.length == 6) _verify();
                 },
               ),
               const SizedBox(height: 28),
               AppButton(label: 'Verify & continue', height: 54, loading: _isVerifying, onPressed: _verify),
               const SizedBox(height: 16),
               Center(
-                child: _secondsLeft > 0
-                    ? Text('Resend OTP in ${_secondsLeft}s', style: const TextStyle(color: AppColors.textSecondary))
-                    : TextButton(onPressed: _resend, child: const Text('Resend OTP')),
+                child: ValueListenableBuilder<int>(
+                  valueListenable: _secondsLeft,
+                  builder: (_, secs, __) => secs > 0
+                      ? Text('Resend OTP in ${secs}s', style: const TextStyle(color: AppColors.textSecondary))
+                      : TextButton(onPressed: _resend, child: const Text('Resend OTP')),
+                ),
               ),
               Center(
                 child: TextButton(

@@ -21,15 +21,11 @@ class _PhoneInputPageState extends State<PhoneInputPage> {
   static const countryCode = '+91';
 
   final _phoneController = TextEditingController();
-  final _passwordController = TextEditingController();
   bool _isLoading = false;
-  bool _usePassword = false;
-  bool _obscure = true;
 
   @override
   void dispose() {
     _phoneController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
@@ -40,35 +36,6 @@ class _PhoneInputPageState extends State<PhoneInputPage> {
       return null;
     }
     return phone;
-  }
-
-  Future<void> _loginWithPassword() async {
-    final phone = _validPhone();
-    if (phone == null) return;
-    final password = _passwordController.text.trim();
-    if (password.isEmpty) {
-      showAppSnack(context, 'Please enter your password', error: true);
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      await Api.loginWithPassword(phone, password);
-      if (!mounted) return;
-      await finishLogin(context, phone);
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      final msg = e.statusCode == 404
-          ? 'No account found for this number. Log in with OTP to create one.'
-          : e.statusCode == 401
-              ? 'Incorrect password. Try again or log in with OTP.'
-              : e.message;
-      showAppSnack(context, msg, error: true);
-    } catch (e) {
-      if (mounted) showAppSnack(context, 'Login failed. Please try again.', error: true);
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
   }
 
   Future<void> _sendOtp() async {
@@ -103,7 +70,7 @@ class _PhoneInputPageState extends State<PhoneInputPage> {
           setState(() => _isLoading = false);
           final msg = switch (e.code) {
             'invalid-phone-number' => 'That phone number looks invalid.',
-            'too-many-requests' => 'Too many attempts. Please try again later or use password login.',
+            'too-many-requests' => 'Too many attempts. Please try again later.',
             'network-request-failed' => 'No internet connection.',
             _ => e.message ?? 'Could not send OTP. Please try again.',
           };
@@ -228,7 +195,7 @@ class _PhoneInputPageState extends State<PhoneInputPage> {
           ),
           const SizedBox(height: 6),
           Text(
-            _usePassword ? 'Log in with your password' : 'We will send a 6-digit OTP to your number',
+            'We will send a 6-digit OTP to your number',
             style: const TextStyle(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 24),
@@ -278,36 +245,12 @@ class _PhoneInputPageState extends State<PhoneInputPage> {
               ],
             ),
           ),
-          if (_usePassword) ...[
-            const SizedBox(height: 14),
-            TextField(
-              controller: _passwordController,
-              obscureText: _obscure,
-              onSubmitted: (_) => _loginWithPassword(),
-              decoration: InputDecoration(
-                hintText: 'Password',
-                prefixIcon: const Icon(Icons.lock_outline),
-                suffixIcon: IconButton(
-                  icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                  onPressed: () => setState(() => _obscure = !_obscure),
-                ),
-              ),
-            ),
-          ],
           const SizedBox(height: 20),
           AppButton(
-            label: _usePassword ? 'Log in' : 'Send OTP',
+            label: 'Send OTP',
             height: 54,
             loading: _isLoading,
-            onPressed: _usePassword ? _loginWithPassword : _sendOtp,
-          ),
-          const SizedBox(height: 12),
-          TextButton(
-            onPressed: _isLoading ? null : () => setState(() => _usePassword = !_usePassword),
-            child: Text(
-              _usePassword ? 'Log in with OTP instead' : 'Log in with password',
-              style: const TextStyle(color: AppColors.textSecondary),
-            ),
+            onPressed: _sendOtp,
           ),
         ],
       ),

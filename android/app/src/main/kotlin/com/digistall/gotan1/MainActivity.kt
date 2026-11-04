@@ -1,4 +1,4 @@
-package com.digistall.gotan
+package com.digistall.gotan1
 
 import io.flutter.embedding.android.FlutterActivity
 

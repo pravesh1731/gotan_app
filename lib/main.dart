@@ -39,7 +39,7 @@ void main() async {
   try {
     await _initFirebase();
   } catch (e) {
-    // Booking, shops and password login still work without Firebase.
+    // Booking and shops still work without Firebase.
     debugPrint('Firebase init failed: $e');
   }
 

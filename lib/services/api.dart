@@ -114,16 +114,6 @@ class Api {
     return UserProfile.fromJson(_asMap(body) ?? const {});
   }
 
-  /// Throws [ApiException] with the backend reason ("User not found",
-  /// "Invalid password") when login fails.
-  static Future<void> loginWithPassword(String phone, String password) async {
-    await _post(Common.baseUrl, 'api/auth/loginuserwithpassword', {'phoneNumber': phone, 'password': password});
-  }
-
-  static Future<void> setPassword(String phone, String password) async {
-    await _post(Common.baseUrl, 'api/auth/adduserpassword', {'phoneNumber': phone, 'password': password});
-  }
-
   static Future<void> updateName(String phone, String name) async {
     await _post(Common.baseUrl, 'api/auth/newname', {'phoneNumber': phone, 'name': name});
   }

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Gotan is a Flutter consumer app by Digistall for the town of Gotan. It mirrors the gotan.in website (repo `Siyag-Rural-Market-Private-Limited/gotan`) and has three features: booking a ride (Bike, Auto or Car), booking a parcel pickup, and ordering from local shops. Android (`com.digistall.gotan`) is the real target. On Android, `main.dart` calls `Firebase.initializeApp()` without options, so it relies on `android/app/google-services.json`; on web it passes `DefaultFirebaseOptions`. There is no `ios/Runner/GoogleService-Info.plist`, so Firebase init fails on iOS (the app catches this and keeps running without OTP login or push).
+Gotan is a Flutter consumer app by Digistall for the town of Gotan. It mirrors the gotan.in website (repo `Siyag-Rural-Market-Private-Limited/gotan`) and has three features: booking a ride (Bike, Auto or Car), booking a parcel pickup, and ordering from local shops. Android (`com.digistall.gotan1`, published as a new Play Store app separate from the old `com.digistall.gotan` listing) is the real target. On Android, `main.dart` calls `Firebase.initializeApp()` without options, so it relies on `android/app/google-services.json`; on web it passes `DefaultFirebaseOptions`. There is no `ios/Runner/GoogleService-Info.plist`, so Firebase init fails on iOS (the app catches this and keeps running without OTP login or push).
 
 ## Commands
 
@@ -19,8 +19,8 @@ flutter build appbundle --release    # Play Store build
 flutter build apk --release
 ```
 
-- **Signing:** `android/app/build.gradle.kts` reads `android/key.properties` (gitignored) unconditionally when it creates the `release` signing config. If that file is missing, Gradle configuration fails for every build type, debug included.
-- **Version:** bump `version:` in `pubspec.yaml` (`1.0.4+20` = versionName+versionCode) before a release.
+- **Signing:** the release keystore is `upload-keystore.jks`. `android/app/build.gradle.kts` reads `android/key.properties` (gitignored) unconditionally when it creates the `release` signing config. If that file is missing, Gradle configuration fails for every build type, debug included.
+- **Version:** bump `version:` in `pubspec.yaml` (`1.0.0+1` = versionName+versionCode; numbering restarted for `com.digistall.gotan1`) before a release.
 - **Tests:** `test/models_test.dart` covers fares, booking status, store/order parsing and the order address format. There are no widget tests.
 - **Web preview:** `flutter build web` works for checking UI, but Google Maps screens need a Maps JS script in `web/index.html`, and phone OTP login is Android-only.
 
